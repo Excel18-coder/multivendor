@@ -1,34 +1,21 @@
 import { useState, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { PaymentButton } from "@/components/PaymentButton";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
-import { cartApi, orderApi } from "@/lib/api";
+import { cartApi, orderApi, type CartItem } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useNavigate } from "react-router-dom";
-
-interface CartItem {
-  id: string;
-  quantity: number;
-  products: {
-    name: string;
-    price: number;
-    image_url: string | null;
-    stores: {
-      name: string;
-      delivery_fee: number;
-    } | null;
-  } | null;
-}
+import { useAppContext } from "@/contexts/AppContext";
 
 const Checkout = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { updateCartCount } = useAppContext();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
@@ -55,7 +42,7 @@ const Checkout = () => {
   const fetchCartItems = async () => {
     try {
       const data = await cartApi.get();
-      setCartItems(data as any);
+      setCartItems(data);
     } catch {
       toast({ title: "Error", description: "Failed to load cart items", variant: "destructive" });
     } finally {
@@ -63,7 +50,7 @@ const Checkout = () => {
     }
   };
 
-  const getSubtotal = () => cartItems.reduce((t, i: any) => t + (i.products?.price || i.product?.price || 0) * i.quantity, 0);
+  const getSubtotal = () => cartItems.reduce((t, i) => t + (i.product?.price ?? 0) * i.quantity, 0);
   const getDeliveryFee = () => 0;
   const getTotal = () => getSubtotal() + getDeliveryFee();
 
@@ -71,11 +58,19 @@ const Checkout = () => {
     e.preventDefault();
     setProcessing(true);
     try {
-      await cartApi.clear();
-      toast({ title: "Order Placed Successfully!", description: "Your order has been placed." });
+      const address = [
+        shippingInfo.fullName,
+        shippingInfo.address,
+        shippingInfo.city,
+        shippingInfo.postalCode,
+        shippingInfo.phone,
+      ].filter(Boolean).join(", ");
+      await orderApi.create({ shipping_address: address });
+      updateCartCount();
+      toast({ title: "Order Placed Successfully!", description: "Your order has been placed. You'll be contacted for delivery." });
       navigate("/");
-    } catch {
-      toast({ title: "Error", description: "Failed to process order. Please try again.", variant: "destructive" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to process order. Please try again.", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
@@ -206,15 +201,11 @@ const Checkout = () => {
                     className="w-full bg-orange-600 hover:bg-orange-700"
                     disabled={processing}
                   >
-                    {processing ? "Processing..." : "Place Order"}
+                    {processing ? "Processing..." : "Place Order (Cash on Delivery)"}
                   </Button>
-                  <PaymentButton 
-                    amount={getTotal()}
-                    description="Urban Stores Order Payment"
-                    onSuccess={() => {
-                      console.log("Payment successful");
-                    }}
-                  />
+                  <p className="text-sm text-center text-gray-500">
+                    For M-Pesa payments, use the <Link to="/cart" className="text-orange-600 underline">Cart page</Link> to pay store by store.
+                  </p>
                 </div>
               </form>
             </CardContent>
@@ -229,16 +220,17 @@ const Checkout = () => {
                 {cartItems.map((item) => (
                   <div key={item.id} className="flex items-center space-x-4">
                     <img
-                      src={item.products?.image_url || "/placeholder.svg"}
-                      alt={item.products?.name}
+                      src={item.product?.image_url ?? item.product?.images?.[0] ?? "/placeholder.svg"}
+                      alt={item.product?.name ?? "Product"}
                       className="w-16 h-16 object-cover rounded-lg"
                     />
                     <div className="flex-1">
-                      <h4 className="font-medium">{item.products?.name}</h4>
+                      <h4 className="font-medium">{item.product?.name ?? item.product_name ?? "Unknown"}</h4>
+                      <p className="text-sm text-gray-500">{item.product?.store?.name ?? item.store_name}</p>
                       <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                     </div>
                     <p className="font-semibold">
-                      KSh {((item.products?.price || 0) * item.quantity).toLocaleString()}
+                      KSh {((item.product?.price ?? item.price ?? 0) * item.quantity).toLocaleString()}
                     </p>
                   </div>
                 ))}

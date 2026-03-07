@@ -4,8 +4,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Star, TrendingUp, Users, Store, Smartphone, Check, X } from "lucide-react";
-import { adminApi, storeApi } from "@/lib/api";
+import { Trash2, Star, TrendingUp, Users, Store, Smartphone, Check, X, Power } from "lucide-react";
+import { adminApi } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -92,8 +92,16 @@ const Admin = () => {
       setStores((storesData || []) as StoreWithMpesa[]);
       setProducts(productsData as any[] || []);
       setComplaints(complaintsData as any[] || []);
-      try { setFeaturedProducts(JSON.parse(featuredData?.value || '{}')?.product_ids || []); } catch { setFeaturedProducts([]); }
-      try { setTopSellingProducts(JSON.parse(topSellingData?.value || '{}')?.product_ids || []); } catch { setTopSellingProducts([]); }
+
+      // value may already be parsed object or a JSON string — handle both
+      const parseSettingIds = (v: any): string[] => {
+        try {
+          const obj = typeof v === 'string' ? JSON.parse(v) : v;
+          return obj?.product_ids || [];
+        } catch { return []; }
+      };
+      setFeaturedProducts(parseSettingIds(featuredData?.value));
+      setTopSellingProducts(parseSettingIds(topSellingData?.value));
     } catch (error) {
       console.error('Error fetching admin data:', error);
       toast({
@@ -118,22 +126,13 @@ const Admin = () => {
   };
 
   const handleDeleteStore = async (storeId: string) => {
-    const store = stores.find(s => s.id === storeId);
-    if (!store) return;
     try {
-      await storeApi.delete((store as any).slug || storeId);
+      await adminApi.deleteStore(storeId);
       setStores(stores.filter(s => s.id !== storeId));
-      toast({
-        title: "Success",
-        description: "Store deleted successfully",
-      });
+      toast({ title: "Success", description: "Store deleted successfully" });
     } catch (error) {
       console.error('Error deleting store:', error);
-      toast({
-        title: "Error",
-        description: "Failed to delete store",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to delete store", variant: "destructive" });
     }
   };
 

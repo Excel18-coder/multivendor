@@ -866,6 +866,21 @@ export const adminApi = {
     return put<any>(`/admin/settings/${key}`, parsedValue);
   },
 
+  deleteStore: (storeId: string) =>
+    del<{ message: string }>(`/admin/stores/${storeId}`),
+
+  toggleStore: (storeId: string, isActive: boolean) =>
+    request<{ message: string }>(
+      `/admin/stores/${storeId}/activate`,
+      { method: "PATCH", body: JSON.stringify({ is_active: isActive }) }
+    ),
+
+  deleteUser: (userId: string) =>
+    del<{ message: string }>(`/admin/users/${userId}`),
+
+  updateUserRole: (userId: string, body: { role?: string; user_type?: string }) =>
+    put<{ message: string }>(`/admin/users/${userId}/role`, body),
+
   promote: (email: string, setupToken: string) =>
     post<{ message: string }>(
       "/admin/promote",
