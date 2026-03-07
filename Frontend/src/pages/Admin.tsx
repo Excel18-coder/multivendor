@@ -575,7 +575,7 @@ const Admin = () => {
                         <div>
                           <h3 className="font-semibold">{product.name}</h3>
                           <p className="text-sm text-gray-600">KSh {product.price}</p>
-                          <p className="text-xs text-gray-500">by {product.stores?.name}</p>
+                          <p className="text-xs text-gray-500">by {(product as any).store_name}</p>
                         </div>
                       </div>
                       <div className="flex gap-2">
@@ -614,7 +614,7 @@ const Admin = () => {
                     <div key={complaint.id} className="flex items-start justify-between p-4 border rounded-lg">
                       <div className="flex-1">
                         <p className="text-sm font-medium mb-2">
-                          Complaint about: {complaint.stores?.name}
+                          Complaint about: {(complaint as any).store_name}
                         </p>
                         <p className="text-sm text-gray-600 mb-2">{complaint.message}</p>
                         <p className="text-xs text-gray-500">

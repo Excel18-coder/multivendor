@@ -22,6 +22,11 @@ type Product struct {
 	StoreID            *string  `json:"store_id"`
 	StoreName          *string  `json:"store_name,omitempty"`
 	StoreSlug          *string  `json:"store_slug,omitempty"`
+	StoreWhatsappPhone *string  `json:"store_whatsapp_phone,omitempty"`
+	StoreLocation      *string  `json:"store_location,omitempty"`
+	StoreImageURL      *string  `json:"store_image_url,omitempty"`
+	StoreMpesaEnabled  *bool    `json:"store_mpesa_enabled,omitempty"`
+	StoreMpesaStatus   *string  `json:"store_mpesa_status,omitempty"`
 	Name               *string  `json:"name"`
 	Description        *string  `json:"description"`
 	Price              *float64 `json:"price"`
@@ -206,8 +211,8 @@ func scanProduct(row interface{ Scan(...interface{}) error }, withStore bool) (*
 			&p.ID, &p.StoreID, &p.Name, &p.Description, &p.Price, &p.Category,
 			&p.Quality, &p.ImageURL, &imageURLs, &p.InStock, &tags,
 			&p.DiscountPercentage, &p.CreatedAt,
-			&p.StoreName, &p.StoreSlug,
-		)
+			&p.StoreName, &p.StoreSlug, &p.StoreWhatsappPhone, &p.StoreLocation,
+			&p.StoreImageURL, &p.StoreMpesaEnabled, &p.StoreMpesaStatus)
 	} else {
 		err = row.Scan(
 			&p.ID, &p.StoreID, &p.Name, &p.Description, &p.Price, &p.Category,
@@ -279,7 +284,8 @@ func handleListProducts(c *gin.Context) {
 		SELECT p.id, p.store_id, p.name, p.description, p.price, p.category,
 			   p.quality, p.image_url, p.image_urls, p.in_stock, p.tags,
 			   p.discount_percentage, p.created_at,
-			   s.name, s.slug
+			   s.name, s.slug, s.whatsapp_phone, s.location,
+			   s.image_url AS store_image_url, s.mpesa_enabled, s.mpesa_status
 		FROM products p
 		LEFT JOIN stores s ON p.store_id = s.id
 		WHERE %s
@@ -319,7 +325,8 @@ func handleGetProduct(c *gin.Context) {
 		SELECT p.id, p.store_id, p.name, p.description, p.price, p.category,
 			   p.quality, p.image_url, p.image_urls, p.in_stock, p.tags,
 			   p.discount_percentage, p.created_at,
-			   s.name, s.slug
+			   s.name, s.slug, s.whatsapp_phone, s.location,
+			   s.image_url AS store_image_url, s.mpesa_enabled, s.mpesa_status
 		FROM products p
 		LEFT JOIN stores s ON p.store_id = s.id
 		WHERE p.id=$1`, productID)
@@ -466,7 +473,9 @@ func handleUpdateProduct(c *gin.Context) {
 	row := db.QueryRow(`
 		SELECT p.id, p.store_id, p.name, p.description, p.price, p.category,
 			   p.quality, p.image_url, p.image_urls, p.in_stock, p.tags,
-			   p.discount_percentage, p.created_at, s.name, s.slug
+			   p.discount_percentage, p.created_at, s.name, s.slug,
+			   s.whatsapp_phone, s.location,
+			   s.image_url AS store_image_url, s.mpesa_enabled, s.mpesa_status
 		FROM products p LEFT JOIN stores s ON p.store_id = s.id
 		WHERE p.id=$1`, productID)
 	p, err := scanProduct(row, true)
@@ -549,7 +558,9 @@ func handleGetComparisons(c *gin.Context) {
 	rows, err := db.Query(`
 		SELECT p.id, p.store_id, p.name, p.description, p.price, p.category,
 			   p.quality, p.image_url, p.image_urls, p.in_stock, p.tags,
-			   p.discount_percentage, p.created_at, s.name, s.slug
+			   p.discount_percentage, p.created_at, s.name, s.slug,
+			   s.whatsapp_phone, s.location,
+			   s.image_url AS store_image_url, s.mpesa_enabled, s.mpesa_status
 		FROM product_comparisons pc
 		JOIN products p ON pc.product_id = p.id
 		LEFT JOIN stores s ON p.store_id = s.id

@@ -355,6 +355,19 @@ function normalizeProduct(p: any): Product {
             id: p.store_id ?? "",
             name: p.store_name,
             slug: p.store_slug,
+            // Contact fields — now returned by the product service JOIN
+            whatsapp: p.store_whatsapp_phone ?? null,
+            whatsapp_phone: p.store_whatsapp_phone ?? null,
+            location: p.store_location ?? "",
+            image_url: p.store_image_url ?? null,
+            logo_url: p.store_image_url ?? null,
+            // M-Pesa fields — now returned by the product service JOIN
+            mpesa_enabled: p.store_mpesa_enabled ?? false,
+            mpesa_status: p.store_mpesa_status ?? null,
+            mpesa_api_key:
+              p.store_mpesa_enabled && p.store_mpesa_status === "approved"
+                ? "enabled"
+                : undefined,
             is_active: true,
             is_verified: false,
             subscription_status: "active",

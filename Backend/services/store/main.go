@@ -226,8 +226,37 @@ const storeSelectCols = `
 
 // GET /stores
 func handleListStores(c *gin.Context) {
-	query := `SELECT ` + storeSelectCols + ` FROM stores WHERE is_active=true ORDER BY created_at DESC`
-	rows, err := db.Query(query)
+	where := []string{"is_active=true"}
+	args := []interface{}{}
+	idx := 1
+
+	if storeType := c.Query("store_type"); storeType != "" {
+		where = append(where, fmt.Sprintf("store_type ILIKE $%d", idx))
+		args = append(args, "%"+storeType+"%")
+		idx++
+	}
+	if search := c.Query("search"); search != "" {
+		where = append(where, fmt.Sprintf("(name ILIKE $%d OR description ILIKE $%d)", idx, idx))
+		args = append(args, "%"+search+"%")
+		idx++
+	}
+
+	limit := 50
+	offset := 0
+	if l := c.Query("limit"); l != "" {
+		fmt.Sscan(l, &limit)
+	}
+	if o := c.Query("offset"); o != "" {
+		fmt.Sscan(o, &offset)
+	}
+
+	query := fmt.Sprintf(
+		`SELECT `+storeSelectCols+` FROM stores WHERE %s ORDER BY created_at DESC LIMIT $%d OFFSET $%d`,
+		strings.Join(where, " AND "), idx, idx+1,
+	)
+	args = append(args, limit, offset)
+
+	rows, err := db.Query(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch stores"})
 		return
