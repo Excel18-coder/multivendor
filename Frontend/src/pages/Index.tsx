@@ -58,21 +58,23 @@ const Index = () => {
       let topSellingIds: string[] = [];
       try {
         const fs = await adminApi.getSetting("featured_products");
-        featuredProductIds = (JSON.parse(fs.value) as any)?.product_ids || [];
+        const fsObj = typeof fs.value === 'string' ? JSON.parse(fs.value) : fs.value;
+        featuredProductIds = fsObj?.product_ids || [];
       } catch {}
       try {
         const ts = await adminApi.getSetting("top_selling_products");
-        topSellingIds = (JSON.parse(ts.value) as any)?.product_ids || [];
+        const tsObj = typeof ts.value === 'string' ? JSON.parse(ts.value) : ts.value;
+        topSellingIds = tsObj?.product_ids || [];
       } catch {}
 
       const toCard = (p: any) => ({
         id: p.id, name: p.name ?? "Unknown Product", price: p.price ?? 0,
-        image: p.images?.[0] ?? "/placeholder.svg", image_url: p.images?.[0] ?? "/placeholder.svg",
+        image: p.image_url ?? "/placeholder.svg", image_url: p.image_url ?? "/placeholder.svg",
         rating: 4.5, quality: "basic",
         store: p.store?.name ?? "Unknown Store",
         location: p.store?.location ?? "Kenya",
         tags: p.tags ?? [],
-        discount_percentage: p.discount_price ? Math.round((1 - p.discount_price / p.price) * 100) : 0,
+        discount_percentage: p.discount_percentage ?? 0,
       });
 
       const [allProducts, storesData] = await Promise.all([

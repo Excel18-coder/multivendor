@@ -74,8 +74,8 @@ const ProductPage = () => {
       if (data) {
         setProduct({
           ...data,
-          image_url: data.images?.[0] || '',
-          image_urls: data.images || [],
+          image_url: data.image_url || '',
+          image_urls: data.image_urls || [],
           tags: data.tags || [],
           store: data.store ? {
             id: data.store.id,

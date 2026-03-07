@@ -143,11 +143,11 @@ const StorePage = () => {
         price: p.price,
         description: p.description ?? "",
         category: p.category ?? "",
-        quality: "basic",
-        image_url: p.images?.[0] ?? "/placeholder.svg",
-        in_stock: p.stock_quantity > 0,
+        quality: p.quality ?? "basic",
+        image_url: p.image_url ?? "/placeholder.svg",
+        in_stock: p.in_stock,
         tags: p.tags,
-        discount_percentage: p.discount_price ? Math.round((1 - p.discount_price / p.price) * 100) : 0,
+        discount_percentage: p.discount_percentage ?? 0,
         store: { id: storeData.id, name: storeData.name },
       }));
       setProducts(productsWithStore);
