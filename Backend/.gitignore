@@ -1,0 +1,20 @@
+# ─── Secrets ────────────────────────────────────────────────────
+.env
+
+# ─── Compiled binaries ──────────────────────────────────────────
+gateway/gateway
+services/auth/auth
+services/store/store
+services/product/product
+services/cart/cart
+services/payment/payment
+services/admin/admin
+
+# ─── Go build cache ─────────────────────────────────────────────
+*.test
+*.out
+
+# ─── OS / Editor ────────────────────────────────────────────────
+.DS_Store
+.idea/
+.vscode/
