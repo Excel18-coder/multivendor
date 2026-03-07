@@ -1,0 +1,145 @@
+services:
+  # ─── Database ───────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: multivendor
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./migrations/001_schema.sql:/docker-entrypoint-initdb.d/001_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ─── API Gateway ────────────────────────────────────────────
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+      AUTH_SERVICE_URL: http://auth:8081
+      STORE_SERVICE_URL: http://store:8082
+      PRODUCT_SERVICE_URL: http://product:8083
+      CART_SERVICE_URL: http://cart:8084
+      PAYMENT_SERVICE_URL: http://payment:8085
+      ADMIN_SERVICE_URL: http://admin:8086
+    depends_on:
+      - auth
+      - store
+      - product
+      - cart
+      - payment
+      - admin
+
+  # ─── Auth Service ───────────────────────────────────────────
+  auth:
+    build:
+      context: ./services/auth
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      PORT: "8081"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multivendor?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Store Service ──────────────────────────────────────────
+  store:
+    build:
+      context: ./services/store
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    environment:
+      PORT: "8082"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multivendor?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Product Service ────────────────────────────────────────
+  product:
+    build:
+      context: ./services/product
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    environment:
+      PORT: "8083"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multivendor?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Cart / Wishlist / Order Service ────────────────────────
+  cart:
+    build:
+      context: ./services/cart
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    environment:
+      PORT: "8084"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multivendor?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Payment Service ────────────────────────────────────────
+  payment:
+    build:
+      context: ./services/payment
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      PORT: "8085"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multivendor?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+      PAYMENT_CALLBACK_URL: ${PAYMENT_CALLBACK_URL:-http://localhost:8080/payments/mpesa/callback}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─── Admin Service ──────────────────────────────────────────
+  admin:
+    build:
+      context: ./services/admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8086:8086"
+    environment:
+      PORT: "8086"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/multivendor?sslmode=disable
+      JWT_SECRET: ${JWT_SECRET:-multivendor-super-secret-jwt-key-change-in-prod}
+      ADMIN_SETUP_TOKEN: ${ADMIN_SETUP_TOKEN:-setup-admin-token-change-this}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
