@@ -112,7 +112,7 @@ const Categories = () => {
       const data = await productApi.list({ in_stock: true });
       const products = (data || []).map((p: any) => ({
         ...p,
-        image_url: p.images?.[0] || '',
+        image_url: p.image_url || '',
         tags: p.tags || [],
         stores: p.store ? { id: p.store.id, name: p.store.name, store_type: p.store.category } : undefined,
       }));

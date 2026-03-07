@@ -214,22 +214,30 @@ export const ProductForm = ({ storeId, onSuccess, onCancel, product }: ProductFo
     setLoading(true);
 
     try {
-      // Build payload without discount when left blank
+      const imageUrls: string[] = formData.image_urls?.length
+        ? formData.image_urls
+        : formData.image_url
+        ? [formData.image_url]
+        : [];
+
       const productData: any = {
         name: formData.name,
         description: formData.description,
         price: parseFloat(formData.price),
         category: formData.category,
         quality: formData.quality,
-        images: formData.image_urls || (formData.image_url ? [formData.image_url] : []),
-        stock_quantity: 100,
-        is_active: formData.in_stock,
-        store_id: storeId,
+        image_url: imageUrls[0] ?? "",
+        image_urls: imageUrls,
+        in_stock: formData.in_stock,
         tags,
       };
 
-      if (formData.discount_percentage !== "" && formData.discount_percentage !== null && formData.discount_percentage !== undefined) {
-        productData.discount_price = parseFloat(formData.price) * (1 - parseFloat(formData.discount_percentage as any) / 100);
+      if (
+        formData.discount_percentage !== "" &&
+        formData.discount_percentage !== null &&
+        formData.discount_percentage !== undefined
+      ) {
+        productData.discount_percentage = parseFloat(formData.discount_percentage as any);
       }
 
       if (product) {

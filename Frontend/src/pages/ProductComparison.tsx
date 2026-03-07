@@ -44,7 +44,7 @@ const ProductComparison = () => {
       const comparisons = await productApi.getComparisons();
       const mapped = (comparisons || []).map((p: any) => ({
         ...p,
-        image_url: p.images?.[0] || null,
+        image_url: p.image_url || null,
         tags: p.tags || [],
         stores: p.store ? { name: p.store.name, location: p.store.location || '' } : undefined,
       }));
@@ -59,7 +59,7 @@ const ProductComparison = () => {
           .filter((p: any) => (p.tags || []).some((tag: string) => allTags.includes(tag)))
           .map((p: any) => ({
             ...p,
-            image_url: p.images?.[0] || null,
+            image_url: p.image_url || null,
             tags: p.tags || [],
             stores: p.store ? { name: p.store.name, location: p.store.location || '' } : undefined,
           }));
@@ -246,11 +246,35 @@ const ProductComparison = () => {
                       {comparisonProducts.map((product) => (
                         <td key={product.id} className="px-6 py-4 text-center">
                           <div className="flex flex-col gap-2">
-                            <Button size="sm" className="bg-orange-600 hover:bg-orange-700">
+                            <Button
+                              size="sm"
+                              className="bg-orange-600 hover:bg-orange-700"
+                              onClick={async () => {
+                                if (!user) { window.location.href = "/auth"; return; }
+                                try {
+                                  await cartApi.add(product.id, 1);
+                                  toast({ title: "Added to cart!" });
+                                } catch {
+                                  toast({ title: "Error", description: "Failed to add to cart", variant: "destructive" });
+                                }
+                              }}
+                            >
                               <ShoppingCart size={16} className="mr-1" />
                               Add to Cart
                             </Button>
-                            <Button size="sm" variant="outline">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={async () => {
+                                if (!user) { window.location.href = "/auth"; return; }
+                                try {
+                                  await wishlistApi.add(product.id);
+                                  toast({ title: "Added to wishlist!" });
+                                } catch {
+                                  toast({ title: "Error", description: "Failed to add to wishlist", variant: "destructive" });
+                                }
+                              }}
+                            >
                               <Heart size={16} className="mr-1" />
                               Wishlist
                             </Button>

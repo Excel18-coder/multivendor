@@ -47,10 +47,20 @@ interface Complaint {
   stores: { name: string };
 }
 
+interface AdminUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  user_type: string;
+  created_at: string;
+}
+
 const Admin = () => {
   const [stores, setStores] = useState<StoreWithMpesa[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [featuredProducts, setFeaturedProducts] = useState<string[]>([]);
   const [topSellingProducts, setTopSellingProducts] = useState<string[]>([]);
   const [dataLoading, setDataLoading] = useState(true);
@@ -79,10 +89,11 @@ const Admin = () => {
   const fetchAdminData = async () => {
     setDataLoading(true);
     try {
-      const [storesData, productsData, complaintsData] = await Promise.all([
+      const [storesData, productsData, complaintsData, usersData] = await Promise.all([
         adminApi.stores(),
         adminApi.products(),
         adminApi.complaints(),
+        adminApi.users(),
       ]);
 
       // Fetch admin settings
@@ -92,6 +103,7 @@ const Admin = () => {
       setStores((storesData || []) as StoreWithMpesa[]);
       setProducts(productsData as any[] || []);
       setComplaints(complaintsData as any[] || []);
+      setUsers((usersData || []) as AdminUser[]);
 
       // value may already be parsed object or a JSON string — handle both
       const parseSettingIds = (v: any): string[] => {
@@ -133,6 +145,39 @@ const Admin = () => {
     } catch (error) {
       console.error('Error deleting store:', error);
       toast({ title: "Error", description: "Failed to delete store", variant: "destructive" });
+    }
+  };
+
+  const handleToggleStore = async (storeId: string, isActive: boolean) => {
+    try {
+      await adminApi.toggleStore(storeId, !isActive);
+      setStores(stores.map(s => s.id === storeId ? { ...s, is_active: !isActive } : s));
+      toast({ title: "Success", description: `Store ${!isActive ? 'activated' : 'deactivated'} successfully` });
+    } catch (error) {
+      console.error('Error toggling store:', error);
+      toast({ title: "Error", description: "Failed to update store status", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      await adminApi.deleteUser(userId);
+      setUsers(users.filter(u => u.id !== userId));
+      toast({ title: "Success", description: "User deleted successfully" });
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      toast({ title: "Error", description: "Failed to delete user", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, role: string) => {
+    try {
+      await adminApi.updateUserRole(userId, { role, user_type: role });
+      setUsers(users.map(u => u.id === userId ? { ...u, role, user_type: role } : u));
+      toast({ title: "Success", description: "User role updated successfully" });
+    } catch (error) {
+      console.error('Error updating user role:', error);
+      toast({ title: "Error", description: "Failed to update user role", variant: "destructive" });
     }
   };
 
@@ -328,7 +373,7 @@ const Admin = () => {
         )}
 
         <Tabs defaultValue="stores" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="stores" className="flex items-center gap-2">
               <Store size={16} />
               Stores ({stores.length})
@@ -349,6 +394,10 @@ const Admin = () => {
             <TabsTrigger value="complaints" className="flex items-center gap-2">
               <Users size={16} />
               Complaints ({complaints.length})
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users size={16} />
+              Users ({users.length})
             </TabsTrigger>
             <TabsTrigger value="featured" className="flex items-center gap-2">
               <TrendingUp size={16} />
@@ -386,13 +435,22 @@ const Admin = () => {
                           </div>
                         </div>
                       </div>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteStore(store.id)}
-                      >
-                        <Trash2 size={16} />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleToggleStore(store.id, store.is_active)}
+                        >
+                          <Power size={16} className={store.is_active ? "text-orange-500" : "text-green-500"} />
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteStore(store.id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -573,6 +631,56 @@ const Admin = () => {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="users" className="mt-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Manage Users</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {users.length === 0 ? (
+                  <p className="text-center text-gray-500 py-8">No users found</p>
+                ) : (
+                  <div className="grid gap-4">
+                    {users.map((u) => (
+                      <div key={u.id} className="flex items-center justify-between p-4 border rounded-lg">
+                        <div>
+                          <h3 className="font-semibold">{u.full_name || u.email}</h3>
+                          <p className="text-sm text-gray-600">{u.email}</p>
+                          <div className="flex gap-2 mt-1">
+                            <Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>
+                              {u.role || 'buyer'}
+                            </Badge>
+                            {u.user_type && u.user_type !== u.role && (
+                              <Badge variant="outline">{u.user_type}</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          {u.role !== 'admin' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUpdateUserRole(u.id, u.role === 'seller' ? 'buyer' : 'seller')}
+                            >
+                              {u.role === 'seller' ? 'Make Buyer' : 'Make Seller'}
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleDeleteUser(u.id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

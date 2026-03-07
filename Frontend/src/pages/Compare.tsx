@@ -51,7 +51,7 @@ const Compare = () => {
       
       const mapped = {
         ...product,
-        image_url: product.images?.[0] || '',
+        image_url: product.image_url || '',
         tags: product.tags || [],
         store_id: product.store_id,
         stores: product.store ? { name: product.store.name, store_type: product.store.category || '' } : null,
@@ -66,7 +66,7 @@ const Compare = () => {
           .slice(0, 6)
           .map((p: any) => ({
             ...p,
-            image_url: p.images?.[0] || '',
+            image_url: p.image_url || '',
             tags: p.tags || [],
             stores: p.store ? { name: p.store.name, store_type: p.store.category || '' } : null,
           }));

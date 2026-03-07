@@ -40,16 +40,12 @@ export const StoreSettingsModal = ({ open, onClose, store, onUpdate }: StoreSett
   const { toast } = useToast();
 
   const storeTypes = [
-    "fashion",
-    "electronics",
-    "furniture",
-    "beauty",
-    "food",
-    "books",
-    "sports",
-    "jewelry",
-    "art",
-    "other"
+    "Fashion & Apparel",
+    "Tech & Gadgets",
+    "Furniture & Home",
+    "Health & Beauty",
+    "Food & Grocery",
+    "Books & Stationery",
   ];
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
