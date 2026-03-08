@@ -1,0 +1,175 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Urban Stores Urban Stores" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "Urban Stores" [ref=e8]
+          - generic [ref=e9]: Urban Stores
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - textbox "Search products..." [ref=e15]
+        - navigation [ref=e16]:
+          - link "Marketplace" [ref=e17] [cursor=pointer]:
+            - /url: /marketplace
+          - link "Stores" [ref=e18] [cursor=pointer]:
+            - /url: /stores
+          - link "Categories" [ref=e19] [cursor=pointer]:
+            - /url: /categories
+          - link "Complaints" [ref=e20] [cursor=pointer]:
+            - /url: /complaint
+        - generic [ref=e22]:
+          - button "Sign In" [ref=e23] [cursor=pointer]
+          - button "Sign Up" [ref=e24] [cursor=pointer]
+    - generic [ref=e27]:
+      - generic [ref=e28]:
+        - img [ref=e29]
+        - text: "🇰🇪 Kenya's #1 Marketplace"
+      - heading "Urban Stores Kenya" [level=1] [ref=e31]
+      - paragraph [ref=e32]: Discover authentic products from local Kenyan brands
+      - paragraph [ref=e33]: Fast delivery • Secure checkout • Support local entrepreneurs
+      - generic [ref=e35]:
+        - img [ref=e36]
+        - textbox "Search for products, stores, or categories..." [ref=e39]
+        - button "Search" [ref=e40] [cursor=pointer]
+    - generic [ref=e42]:
+      - heading "Shop by Category" [level=3] [ref=e44]
+      - generic [ref=e45]:
+        - button "all" [ref=e46] [cursor=pointer]
+        - button "T-Shirts & Shirts" [ref=e47] [cursor=pointer]
+        - button "Hoodies & Sweatshirts" [ref=e48] [cursor=pointer]
+        - button "Jeans & Trousers" [ref=e49] [cursor=pointer]
+        - button "Suits & Formal Wear" [ref=e50] [cursor=pointer]
+        - button "Dresses & Skirts" [ref=e51] [cursor=pointer]
+        - button "+15 More" [ref=e52] [cursor=pointer]:
+          - img
+          - text: +15 More
+    - generic [ref=e54]:
+      - generic [ref=e55]:
+        - generic [ref=e56]:
+          - img [ref=e57]
+          - text: Featured
+        - heading "✨ Featured Products" [level=2] [ref=e60]
+        - paragraph [ref=e61]: Handpicked by our team for exceptional quality and value
+      - button "Explore All Products" [ref=e63] [cursor=pointer]:
+        - img
+        - text: Explore All Products
+      - region:
+        - button "Previous slide" [disabled]:
+          - img
+          - generic: Previous slide
+        - button "Next slide" [disabled]:
+          - img
+          - generic: Next slide
+    - generic [ref=e65]:
+      - generic [ref=e66]:
+        - generic [ref=e67]:
+          - img [ref=e68]
+          - text: Tech Zone
+        - heading "⚡ Electronics & Tech" [level=2] [ref=e70]
+        - paragraph [ref=e71]: Latest gadgets and technology at unbeatable prices
+      - region:
+        - button "Previous slide" [disabled]:
+          - img
+          - generic: Previous slide
+        - button "Next slide" [disabled]:
+          - img
+          - generic: Next slide
+    - generic [ref=e74]:
+      - generic [ref=e75]:
+        - img [ref=e76]
+        - text: Community Favorites
+      - heading "⭐ Top Followed Stores" [level=2] [ref=e78]
+      - paragraph [ref=e79]: Discover the most trusted and loved stores in Kenya
+    - generic [ref=e82]:
+      - generic [ref=e83]:
+        - img [ref=e84]
+        - text: Join Our Community
+      - heading "Start Your Success Story" [level=2] [ref=e87]
+      - paragraph [ref=e88]: Join 1000+ Kenyan entrepreneurs already selling on our platform
+      - paragraph [ref=e89]: Zero setup fees • Easy store management • Instant payments • 24/7 support
+      - generic [ref=e90]:
+        - button "Start Selling Today" [ref=e91] [cursor=pointer]:
+          - img
+          - text: Start Selling Today
+        - button "Learn More" [ref=e92] [cursor=pointer]
+      - generic [ref=e93]:
+        - generic [ref=e94]:
+          - generic [ref=e95]: ₹2M+
+          - generic [ref=e96]: Monthly Sales
+        - generic [ref=e97]:
+          - generic [ref=e98]: 98%
+          - generic [ref=e99]: Seller Satisfaction
+        - generic [ref=e100]:
+          - generic [ref=e101]: 24hrs
+          - generic [ref=e102]: Average Setup Time
+        - generic [ref=e103]:
+          - generic [ref=e104]: 0%
+          - generic [ref=e105]: Setup Fees
+    - contentinfo [ref=e106]:
+      - generic [ref=e107]:
+        - generic [ref=e108]:
+          - generic [ref=e109]:
+            - generic [ref=e110]:
+              - generic [ref=e112]: US
+              - generic [ref=e113]: Urban Stores
+            - paragraph [ref=e114]: Kenya's premier marketplace connecting local stores with customers across the country.
+            - generic [ref=e115]:
+              - img [ref=e116] [cursor=pointer]
+              - img [ref=e118] [cursor=pointer]
+              - img [ref=e121] [cursor=pointer]
+          - generic [ref=e123]:
+            - heading "Quick Links" [level=3] [ref=e124]
+            - list [ref=e125]:
+              - listitem [ref=e126]:
+                - link "About Us" [ref=e127] [cursor=pointer]:
+                  - /url: /about
+              - listitem [ref=e128]:
+                - link "Marketplace" [ref=e129] [cursor=pointer]:
+                  - /url: /marketplace
+              - listitem [ref=e130]:
+                - link "All Stores" [ref=e131] [cursor=pointer]:
+                  - /url: /stores
+              - listitem [ref=e132]:
+                - link "Become a Seller" [ref=e133] [cursor=pointer]:
+                  - /url: /seller-dashboard
+              - listitem [ref=e134]:
+                - link "Submit Complaint" [ref=e135] [cursor=pointer]:
+                  - /url: /complaints
+          - generic [ref=e136]:
+            - heading "Customer Support" [level=3] [ref=e137]
+            - list [ref=e138]:
+              - listitem [ref=e139]:
+                - link "Help Center" [ref=e140] [cursor=pointer]:
+                  - /url: /help
+              - listitem [ref=e141]:
+                - link "Shipping Info" [ref=e142] [cursor=pointer]:
+                  - /url: /shipping
+              - listitem [ref=e143]:
+                - link "Returns" [ref=e144] [cursor=pointer]:
+                  - /url: /returns
+              - listitem [ref=e145]:
+                - link "Terms of Service" [ref=e146] [cursor=pointer]:
+                  - /url: /terms
+              - listitem [ref=e147]:
+                - link "Privacy Policy" [ref=e148] [cursor=pointer]:
+                  - /url: /privacy
+          - generic [ref=e149]:
+            - heading "Contact Us" [level=3] [ref=e150]
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - img [ref=e153]
+                - generic [ref=e155]: "+254793708416"
+              - generic [ref=e156]:
+                - img [ref=e157]
+                - generic [ref=e160]: urbanstoreke@gmail.com
+              - generic [ref=e161]:
+                - img [ref=e162]
+                - generic [ref=e165]: Nairobi, Kenya
+        - paragraph [ref=e167]: © 2024 Urban Stores Kenya. All rights reserved.
+```
