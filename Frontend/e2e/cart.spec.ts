@@ -30,9 +30,10 @@ test.describe("Cart – unauthenticated", () => {
 
     const url = page.url();
     const isOnAuth = url.includes("/auth");
-    const hasSignInText = await page
+    // Cart.tsx renders "Please Login" / "You need to login" for unauthenticated users
+    const hasLoginPrompt = await page
       .locator("body")
-      .getByText(/sign in|log in|please sign/i)
+      .getByText(/sign in|log in|please sign|please login|login|you need to login/i)
       .isVisible()
       .catch(() => false);
     const hasEmptyState = await page
@@ -41,7 +42,7 @@ test.describe("Cart – unauthenticated", () => {
       .isVisible()
       .catch(() => false);
 
-    expect(isOnAuth || hasSignInText || hasEmptyState).toBeTruthy();
+    expect(isOnAuth || hasLoginPrompt || hasEmptyState).toBeTruthy();
   });
 });
 

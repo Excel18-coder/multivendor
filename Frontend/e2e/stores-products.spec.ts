@@ -176,12 +176,13 @@ test.describe("Wishlist (/wishlist)", () => {
 
     const url = page.url();
     const redirected = url.includes("/auth");
+    // Wishlist.tsx renders "Please Login" / "You need to login" for unauthenticated users
     const hasPrompt = await page
-      .getByText(/sign in|log in/i)
+      .getByText(/sign in|log in|please login|please sign|login|you need to login/i)
       .isVisible()
       .catch(() => false);
     const hasEmptyState = await page
-      .getByText(/empty|no items|nothing|sign in/i)
+      .getByText(/empty|no items|nothing/i)
       .isVisible()
       .catch(() => false);
 

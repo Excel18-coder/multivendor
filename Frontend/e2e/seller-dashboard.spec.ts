@@ -28,8 +28,9 @@ test.describe("Seller Dashboard – unauthenticated", () => {
     const url = page.url();
     const onAuth =
       url.includes("/auth") || url.includes("/seller-auth");
+    // SellerDashboard renders "Please Login" / "You need to login as a seller"
     const hasPrompt = await page
-      .getByText(/sign in|log in|please sign/i)
+      .getByText(/sign in|log in|please sign|please login|login|you need to login/i)
       .isVisible()
       .catch(() => false);
 

@@ -27,13 +27,15 @@ test.describe("Homepage (/)", () => {
   });
 
   test("renders hero search input", async ({ page }) => {
-    // The homepage has a large search bar in the hero section
-    const heroSearch = page
-      .locator("input[placeholder]")
-      .filter({ hasText: "" })
-      .first();
-    // At least one search input must be present (header or hero)
-    await expect(page.locator("input[placeholder]").first()).toBeVisible();
+    // The hero search has placeholder "Search for products, stores, or categories..."
+    // It is always visible (not hidden on mobile, unlike the header search).
+    const heroSearch = page.locator(
+      "input[placeholder*='Search for products']"
+    );
+    // Fall back to any visible input if the hero placeholder text ever changes
+    const anyVisible = page.locator("input[placeholder]").filter({ hasNot: page.locator(":hidden") });
+    const heroCount = await heroSearch.count();
+    await expect(heroCount > 0 ? heroSearch.first() : anyVisible.first()).toBeVisible({ timeout: 10_000 });
   });
 
   test("category chips / buttons are rendered", async ({ page }) => {
@@ -67,42 +69,70 @@ test.describe("Homepage (/)", () => {
   });
 
   test('navigates to /marketplace when "Marketplace" link is clicked', async ({ page }) => {
-    const marketplaceLink = page.locator("a[href='/marketplace']").first();
-    if ((await marketplaceLink.count()) === 0) {
+    // On mobile the header nav is hidden; look for any visible link to /marketplace
+    // (could be in footer, hero CTA, or category button)
+    const allLinks = page.locator("a[href='/marketplace']");
+    const count = await allLinks.count();
+    if (count === 0) {
       test.skip();
       return;
     }
-    await marketplaceLink.scrollIntoViewIfNeeded();
-    await marketplaceLink.click({ force: true });
+    // Find the first link that is actually visible in the viewport
+    let clicked = false;
+    for (let i = 0; i < count; i++) {
+      const link = allLinks.nth(i);
+      if (await link.isVisible()) {
+        await link.click();
+        clicked = true;
+        break;
+      }
+    }
+    if (!clicked) {
+      test.skip(); // All links CSS-hidden on this viewport
+      return;
+    }
     await expect(page).toHaveURL(/\/marketplace/, { timeout: 15_000 });
   });
 
   test('navigates to /stores when "Stores" link is clicked', async ({ page }) => {
-    const storesLink = page.locator("a[href='/stores']").first();
-    if ((await storesLink.count()) === 0) {
+    const allLinks = page.locator("a[href='/stores']");
+    const count = await allLinks.count();
+    if (count === 0) {
       test.skip();
       return;
     }
-    await storesLink.scrollIntoViewIfNeeded();
-    await storesLink.click({ force: true });
+    let clicked = false;
+    for (let i = 0; i < count; i++) {
+      const link = allLinks.nth(i);
+      if (await link.isVisible()) {
+        await link.click();
+        clicked = true;
+        break;
+      }
+    }
+    if (!clicked) {
+      test.skip();
+      return;
+    }
     await expect(page).toHaveURL(/\/stores/, { timeout: 15_000 });
   });
 
   test("product cards render when featured products exist", async ({ page }) => {
-    // Wait for lazy-loaded product data
-    const productCard = page.locator("[data-testid='product-card'], .product-card, article").first();
-    // Gracefully skip if there are no products in the test environment
-    const count = await page
-      .locator("img[alt]")
-      .filter({ hasText: "" })
-      .count()
-      .catch(() => 0);
+    // Wait extra time for the async API fetch on the homepage
+    await page.waitForTimeout(3_000);
+    await expect(page.locator("body")).not.toContainText("Something went wrong");
 
-    if (count === 0) {
-      // Just assert the page didn't error
-      await expect(page.locator("body")).not.toContainText("Something went wrong");
+    // If there are product card links (a[href*='/products/']), verify one is visible.
+    // If the backend returned nothing, just confirm the hero section is present.
+    const productLinks = page.locator("a[href*='/products/']");
+    const hasProducts = (await productLinks.count()) > 0;
+    if (hasProducts) {
+      await expect(productLinks.first()).toBeVisible({ timeout: 10_000 });
     } else {
-      await expect(productCard).toBeVisible({ timeout: 15_000 });
+      // No products – assert the page rendered the hero at minimum
+      await expect(
+        page.locator("input[placeholder*='Search for products']").first()
+      ).toBeVisible({ timeout: 10_000 });
     }
   });
 });

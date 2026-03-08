@@ -44,7 +44,28 @@ test.describe("Marketplace (/marketplace)", () => {
   });
 
   test("filter sidebar / panel is rendered", async ({ page }) => {
-    // At minimum a price or category filter label should be visible
+    // On desktop (md+) the filter panel is always visible.
+    // On mobile it is inside a Collapsible toggled by a Filter button – open it first.
+    const desktopFilter = page.locator(".hidden.md\\:grid, .hidden.md\\:block").filter({
+      has: page.getByText(/price range/i),
+    });
+    const isDesktopVisible = await desktopFilter.isVisible().catch(() => false);
+
+    if (!isDesktopVisible) {
+      // Mobile: click the Filter toggle button to open the collapsible
+      const filterBtn = page
+        .locator("button.md\\:hidden, button")
+        .filter({ has: page.locator("svg") })
+        .filter({ hasText: /filter/i })
+        .or(page.locator("button").filter({ has: page.locator('[data-lucide="filter"], svg') }).filter({ hasNot: page.locator("header") }));
+      const filterBtnCount = await filterBtn.count();
+      if (filterBtnCount > 0) {
+        await filterBtn.first().click();
+        await page.waitForTimeout(400); // let collapsible animate open
+      }
+    }
+
+    // After opening (or on desktop), price/category text should be present
     await expect(
       page.getByText(/price range|price|categories|filter/i).first()
     ).toBeVisible({ timeout: 10_000 });
