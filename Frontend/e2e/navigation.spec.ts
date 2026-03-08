@@ -71,37 +71,29 @@ test.describe("404 – NotFound page", () => {
 // ─── Header navigation ─────────────────────────────────────────────────────
 
 test.describe("Header navigation links", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/");
-    await waitForLoadingToFinish(page);
-  });
+  // Note: the header cart/wishlist entries use React Router's navigate() via
+  // onClick buttons (not <a href> tags) and are only rendered when the user
+  // is authenticated.  We test the routes are accessible via direct navigation.
 
   test('logo link navigates to /', async ({ page }) => {
     // Click logo from a non-home page
-    await page.goto("/marketplace");
+    await page.goto("/marketplace", { waitUntil: "domcontentloaded" });
     await page.locator('header a[href="/"]').first().click();
     await expect(page).toHaveURL("/");
   });
 
-  test('Cart icon / link navigates to /cart', async ({ page }) => {
-    await page.goto("/");
-    const cartLink = page.locator('header a[href="/cart"]');
-    if ((await cartLink.count()) > 0) {
-      await cartLink.click();
-      await expect(page).toHaveURL(/\/cart/);
-    } else {
-      test.skip();
-    }
+  test('Cart page (/cart) is accessible', async ({ page }) => {
+    // The header cart button uses onClick+navigate and only renders when
+    // authenticated, so we validate the route directly.
+    await page.goto("/cart", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/cart/);
+    await expect(page.locator("header")).toBeVisible({ timeout: 10_000 });
   });
 
-  test('Wishlist link navigates to /wishlist', async ({ page }) => {
-    const wishlistLink = page.locator('header a[href="/wishlist"]');
-    if ((await wishlistLink.count()) > 0) {
-      await wishlistLink.click();
-      await expect(page).toHaveURL(/\/wishlist/);
-    } else {
-      test.skip();
-    }
+  test('Wishlist page (/wishlist) is accessible', async ({ page }) => {
+    await page.goto("/wishlist", { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveURL(/\/wishlist/);
+    await expect(page.locator("header")).toBeVisible({ timeout: 10_000 });
   });
 });
 

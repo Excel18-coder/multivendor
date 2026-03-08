@@ -1,0 +1,41 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Urban Stores" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "Urban Stores" [ref=e8]
+        - button [ref=e9] [cursor=pointer]:
+          - img
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - heading "Marketplace" [level=1] [ref=e13]
+          - generic [ref=e14]:
+            - generic [ref=e15]:
+              - img [ref=e16]
+              - textbox "Search products..." [ref=e19]
+            - button [ref=e20] [cursor=pointer]:
+              - img
+        - generic [ref=e21]: 1 products found
+      - generic [ref=e24] [cursor=pointer]:
+        - img "Test Sneakers" [ref=e26]
+        - generic [ref=e27]:
+          - heading "Test Sneakers" [level=3] [ref=e29]
+          - generic [ref=e30]: Comfortable test sneakers
+          - generic [ref=e33]: KSh 3500
+          - generic [ref=e36]: shoes
+          - generic [ref=e37]:
+            - button "Add to Cart" [ref=e38]:
+              - img
+              - text: Add to Cart
+            - button [ref=e39]:
+              - img
+            - button "Compare similar products" [ref=e40]:
+              - img
+```

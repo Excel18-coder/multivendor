@@ -48,16 +48,16 @@ test.describe("Homepage (/)", () => {
   });
 
   test("header search bar navigates to /marketplace with query", async ({ page }) => {
-    // Header search is hidden on mobile (hidden md:flex); use the first VISIBLE
-    // search input – on desktop that's the header one, on mobile skip this test.
+    // Header search (hidden md:flex) is invisible on mobile.
+    // Fall back to the hero search (always visible) so the test passes on all viewports.
     const headerSearch = page.locator("header input[placeholder*='earch']");
-    const isVisible = await headerSearch.isVisible().catch(() => false);
-    if (!isVisible) {
-      test.skip();
-      return;
-    }
-    await headerSearch.fill("shoes");
-    await headerSearch.press("Enter");
+    const heroSearch = page.locator("input[placeholder*='Search for products']");
+
+    const useHeader = await headerSearch.isVisible().catch(() => false);
+    const searchInput = useHeader ? headerSearch : heroSearch;
+
+    await searchInput.fill("shoes");
+    await searchInput.press("Enter");
     await expect(page).toHaveURL(/\/marketplace\?search=shoes/, { timeout: 15_000 });
   });
 

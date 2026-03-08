@@ -1,0 +1,71 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Urban Stores Urban Stores" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "Urban Stores" [ref=e8]
+          - generic [ref=e9]: Urban Stores
+        - generic [ref=e11]:
+          - img [ref=e12]
+          - textbox "Search products..." [ref=e15]
+        - navigation [ref=e16]:
+          - link "Marketplace" [ref=e17] [cursor=pointer]:
+            - /url: /marketplace
+          - link "Stores" [ref=e18] [cursor=pointer]:
+            - /url: /stores
+          - link "Categories" [ref=e19] [cursor=pointer]:
+            - /url: /categories
+          - link "Complaints" [ref=e20] [cursor=pointer]:
+            - /url: /complaint
+        - generic [ref=e22]:
+          - button "Sign In" [ref=e23] [cursor=pointer]
+          - button "Sign Up" [ref=e24] [cursor=pointer]
+    - generic [ref=e25]:
+      - generic [ref=e26]:
+        - generic [ref=e27]:
+          - heading "Marketplace" [level=1] [ref=e28]
+          - generic [ref=e30]:
+            - img [ref=e31]
+            - textbox "Search products..." [ref=e34]
+        - generic [ref=e35]: 1 products found
+      - generic [ref=e36]:
+        - generic [ref=e37]:
+          - heading "Price Range" [level=3] [ref=e39]
+          - generic [ref=e41]:
+            - generic [ref=e42]: KSh 3500 - KSh 3500
+            - slider "Minimum" [ref=e46]
+        - generic [ref=e47]:
+          - heading "Categories" [level=3] [ref=e49]
+          - generic [ref=e51]:
+            - generic [ref=e52] [cursor=pointer]: All Categories
+            - generic [ref=e53] [cursor=pointer]: T-Shirts & Shirts
+            - generic [ref=e54] [cursor=pointer]: Hoodies & Sweatshirts
+            - generic [ref=e55] [cursor=pointer]: Jeans & Trousers
+            - generic [ref=e56] [cursor=pointer]: Suits & Formal Wear
+            - generic [ref=e57] [cursor=pointer]: Dresses & Skirts
+            - generic [ref=e58] [cursor=pointer]: Tracksuits & Sweatpants
+            - generic [ref=e59] [cursor=pointer]:
+              - img [ref=e60]
+              - text: Show 14 More
+      - generic [ref=e63] [cursor=pointer]:
+        - img "Test Sneakers" [ref=e65]
+        - generic [ref=e66]:
+          - heading "Test Sneakers" [level=3] [ref=e68]
+          - generic [ref=e69]: Comfortable test sneakers
+          - generic [ref=e72]: KSh 3500
+          - generic [ref=e75]: shoes
+          - generic [ref=e76]:
+            - button "Add to Cart" [ref=e77]:
+              - img
+              - text: Add to Cart
+            - button [ref=e78]:
+              - img
+            - button "Compare similar products" [ref=e79]:
+              - img
+```

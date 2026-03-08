@@ -97,27 +97,54 @@ test.describe("Authentication – Buyer (/auth)", () => {
   });
 
   test("navigating to /auth while signed-in redirects away from /auth", async ({ page }) => {
-    // This test requires real credentials to actually sign in first
-    const { hasBuyerCredentials, signIn, TEST_USER } = await import("./helpers");
-    if (!hasBuyerCredentials()) {
-      test.skip(true, "Set E2E_USER_EMAIL + E2E_USER_PASSWORD to run this test");
-      return;
-    }
+    // Use mocked auth (no real backend required) to simulate a logged-in session.
+    const MOCK_USER = {
+      id: "test-001",
+      email: "test@example.com",
+      full_name: "Test User",
+      user_type: "buyer",
+      role: "buyer",
+      created_at: "2024-01-01T00:00:00Z",
+    };
 
-    const ok = await signIn(page, TEST_USER.email, TEST_USER.password);
-    if (!ok) {
-      test.skip(true, "Sign-in failed");
-      return;
-    }
+    // Mock /auth/me so the app context sees an authenticated user
+    await page.route("**/auth/me**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ user: MOCK_USER }),
+      })
+    );
+    // Mock supporting endpoints so context data loaders don't throw
+    await page.route("**/cart**", (route) => {
+      if (route.request().method() === "GET")
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      else route.continue();
+    });
+    await page.route("**/wishlist**", (route) => {
+      if (route.request().method() === "GET")
+        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
+      else route.continue();
+    });
 
-    // Now visit /auth while the session is active – should redirect to /
+    // Inject auth token before navigation so the context reads it immediately
+    await page.addInitScript((u) => {
+      localStorage.setItem("auth_token", "mock-token");
+      localStorage.setItem("auth_user", JSON.stringify(u));
+    }, MOCK_USER);
+
+    // Navigate to /auth while "signed in" – Auth.tsx should redirect to /
     await page.goto("/auth");
-    await page.waitForTimeout(2_000); // let the Auth.tsx useEffect run
+    await page.waitForTimeout(2_000); // let the useEffect redirect run
 
-    // Either redirected away or the page loaded without crash
+    // The app should redirect away from /auth (or at worst render without crash)
     const url = page.url();
     const redirected = !url.includes("/auth");
-    const noError = !(await page.locator("body").getByText("Something went wrong").isVisible().catch(() => false));
+    const noError = !(await page
+      .locator("body")
+      .getByText("Something went wrong")
+      .isVisible()
+      .catch(() => false));
     expect(redirected || noError).toBeTruthy();
   });
 });

@@ -1,0 +1,65 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - region "Notifications (F8)":
+    - list
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - link "Urban Stores" [ref=e7] [cursor=pointer]:
+          - /url: /
+          - img "Urban Stores" [ref=e8]
+        - button [ref=e9] [cursor=pointer]:
+          - img
+    - generic [ref=e12]:
+      - heading "Create Your Store" [level=3] [ref=e14]:
+        - img [ref=e15]
+        - generic [ref=e20]: Create Your Store
+      - generic [ref=e22]:
+        - generic [ref=e23]:
+          - text: Store Name
+          - textbox "Store Name" [ref=e24]
+        - generic [ref=e25]:
+          - text: Store Type
+          - combobox [ref=e26] [cursor=pointer]:
+            - generic: Select store type
+            - img [ref=e27]
+          - combobox [ref=e29]
+        - generic [ref=e30]:
+          - text: Description
+          - textbox "Description" [ref=e31]
+        - generic [ref=e32]:
+          - text: Location
+          - textbox "Location" [ref=e33]
+        - generic [ref=e34]:
+          - text: Payment Options
+          - generic [ref=e35]:
+            - generic [ref=e36]:
+              - checkbox "Pay on Delivery" [checked] [ref=e37]
+              - generic [ref=e38]: Pay on Delivery
+            - generic [ref=e39]:
+              - checkbox "Prepay" [ref=e40]
+              - generic [ref=e41]: Prepay
+        - generic [ref=e43]:
+          - checkbox "Enable M-Pesa STK Push for your customers" [ref=e44]
+          - generic [ref=e45]:
+            - text: Enable M-Pesa STK Push for your customers
+            - paragraph [ref=e46]:
+              - text: ⭐
+              - strong [ref=e47]: Highly Recommended!
+              - text: Allow customers to pay directly via M-Pesa prompt for a smooth checkout experience.
+        - generic [ref=e48]:
+          - text: Store Image
+          - generic [ref=e49]:
+            - generic [ref=e50]:
+              - button "Store Image" [ref=e51]
+              - button "Upload" [ref=e52] [cursor=pointer]:
+                - img
+                - text: Upload
+            - generic [ref=e53]:
+              - text: Or paste image URL
+              - textbox "Or paste image URL" [ref=e54]:
+                - /placeholder: https://example.com/store-image.jpg
+        - button "Create Store" [ref=e55] [cursor=pointer]
+```
