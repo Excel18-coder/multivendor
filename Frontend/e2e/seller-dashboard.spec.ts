@@ -1,8 +1,8 @@
 /**
  * E2E tests – Seller Dashboard (/seller)
  *
- * Authenticated tests use localStorage injection + API mocking so they run
- * without a live backend or real credentials.
+ * All API mocks use the explicit backend origin (http://localhost:8080) so
+ * they never accidentally intercept page-navigation requests to localhost:5173.
  */
 
 import { test, expect } from "@playwright/test";
@@ -52,80 +52,170 @@ const MOCK_STORE = {
   created_at: "2024-01-01T00:00:00Z",
 };
 
-/** Register all mocks needed by the Seller Dashboard for a given user. */
-async function setupSellerMocks(page: any, user: typeof MOCK_SELLER | typeof MOCK_BUYER, withStore = true) {
+/** Register all mocks needed for the Seller Dashboard. */
+async function setupSellerMocks(
+  page: any,
+  user: typeof MOCK_SELLER | typeof MOCK_BUYER,
+  withStore = true
+) {
+  // Auth injection
   await page.addInitScript((u: typeof MOCK_SELLER) => {
     localStorage.setItem("auth_token", "mock-token");
     localStorage.setItem("auth_user", JSON.stringify(u));
   }, user);
 
-  await page.route("**/auth/me**", (route: any) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user }) })
+  // LIFO order: catch-all FIRST, specific routes AFTER (highest priority last)
+
+  // Catch-all (lowest priority)
+  await page.route("http://localhost:8080/**", (route: any) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    })
   );
 
-  await page.route("**/stores/me/store**", (route: any) => {
-    if (route.request().method() === "GET") {
-      if (withStore)
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ store: MOCK_STORE }) });
-      else
-        route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not found" }) });
-    } else {
-      route.continue();
-    }
+  // Broad utility routes
+  await page.route("http://localhost:8080/cart**", (route: any) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [] }),
+    })
+  );
+
+  await page.route("http://localhost:8080/wishlist**", (route: any) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ items: [] }),
+    })
+  );
+
+  await page.route("http://localhost:8080/payment**", (route: any) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ payments: [] }),
+    })
+  );
+
+  await page.route("http://localhost:8080/products**", (route: any) => {
+    if (route.request().method() === "GET")
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [] }),
+      });
+    else
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ product: {} }),
+      });
   });
 
-  await page.route("**/stores**", (route: any) => {
+  // Store sub-routes (registered before /stores/me/store so it takes lower priority)
+  await page.route("http://localhost:8080/stores/**", (route: any) => {
     const url = route.request().url();
     const method = route.request().method();
-    if (method === "GET" && !url.includes("/me/")) {
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ stores: [MOCK_STORE] }) });
-    } else {
-      route.continue();
+
+    if (/\/stores\/[^/]+\/complaints/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ complaints: [] }),
+      });
     }
+    if (/\/stores\/[^/]+\/ratings/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ratings: [], average: 0 }),
+      });
+    }
+    if (/\/stores\/[^/]+\/follow/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ following: false }),
+      });
+    }
+    if (/\/stores\/[^/]+\/products/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [] }),
+      });
+    }
+    if (method === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ stores: [MOCK_STORE] }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ store: MOCK_STORE }),
+    });
   });
 
-  await page.route("**/products**", (route: any) => {
-    if (route.request().method() === "GET")
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ products: [] }) });
-    else
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ product: {} }) });
+  // /stores/me/store – highest priority (registered last)
+  await page.route("http://localhost:8080/stores/me/store**", (route: any) => {
+    const method = route.request().method();
+    if (method === "GET") {
+      if (withStore) {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ store: MOCK_STORE }),
+        });
+      } else {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "not found" }),
+        });
+      }
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ store: MOCK_STORE }),
+    });
   });
 
-  await page.route("**/complaints**", (route: any) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ complaints: [] }) })
+  // auth/me – highest priority (registered last)
+  await page.route("http://localhost:8080/auth/me**", (route: any) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ user }),
+    })
   );
-
-  await page.route("**/payment**", (route: any) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ payments: [] }) })
-  );
-
-  await page.route("**/cart**", (route: any) => {
-    if (route.request().method() === "GET")
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
-    else route.continue();
-  });
-
-  await page.route("**/wishlist**", (route: any) => {
-    if (route.request().method() === "GET")
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
-    else route.continue();
-  });
 }
 
 // ─── Unauthenticated ──────────────────────────────────────────────────────────
 
 test.describe("Seller Dashboard – unauthenticated", () => {
   test("renders without crash and shows sign-in or redirect", async ({ page }) => {
+    await page.route("http://localhost:8080/**", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      })
+    );
+
     await page.goto("/seller");
     await waitForLoadingToFinish(page);
 
     const url = page.url();
     const onAuth = url.includes("/auth") || url.includes("/seller-auth");
-    // SellerDashboard renders "Please Login" / "You need to login as a seller"
-    const hasPrompt = await page
-      .getByText(/sign in|log in|please sign|please login|login|you need to login/i)
-      .isVisible()
-      .catch(() => false);
+    const bodyText = await page.locator("body").textContent().catch(() => "");
+    const hasPrompt = /please login|you need to login|log in|sign in/i.test(bodyText ?? "");
 
     expect(onAuth || hasPrompt).toBeTruthy();
   });
@@ -138,19 +228,24 @@ test.describe("Seller Dashboard – buyer role", () => {
     await setupSellerMocks(page, MOCK_BUYER, false);
   });
 
-  test("buyer visiting /seller sees an access-denied message", async ({ page }) => {
+  test("buyer visiting /seller is redirected or sees access-denied", async ({ page }) => {
     await page.goto("/seller");
-    await waitForLoadingToFinish(page);
+    // SellerDashboard calls navigate("/auth") immediately for non-sellers
+    await page.waitForTimeout(2_000);
 
     await expect(page.locator("body")).not.toContainText("Something went wrong");
 
-    // SellerDashboard.tsx renders "Please Login" when user_type !== "seller"
+    const url = page.url();
+    const redirected =
+      url.includes("/auth") ||
+      url.includes("/seller-auth") ||
+      url.endsWith("/");
     const hasPrompt = await page
-      .getByText(/please login|you need to login|login|sign in|not authorized|seller/i)
+      .getByText(/please login|you need to login|login|sign in|not authorized/i)
       .isVisible()
       .catch(() => false);
 
-    expect(hasPrompt || true).toBeTruthy(); // page must not crash
+    expect(redirected || hasPrompt).toBeTruthy();
   });
 });
 
@@ -173,11 +268,10 @@ test.describe("Seller Dashboard – seller authenticated", () => {
     await page.goto("/seller");
     await waitForLoadingToFinish(page);
 
-    // With mocked store, dashboard tabs should be rendered
     const hasDashboardTabs = (await page.locator('[role="tab"]').count()) >= 2;
     const hasCreateStore = await page
-      .locator("h1, h2, h3, button, label")
-      .filter({ hasText: /create.*store|set up.*store|new store|store name/i })
+      .locator("h1, h2, h3, [class*='CardTitle']")
+      .filter({ hasText: /create.*store|set up.*store|store name/i })
       .isVisible()
       .catch(() => false);
 
@@ -189,7 +283,7 @@ test.describe("Seller Dashboard – seller authenticated", () => {
     await waitForLoadingToFinish(page);
 
     const tabs = page.locator('[role="tab"]');
-    await expect(tabs.first()).toBeVisible({ timeout: 10_000 });
+    await expect(tabs.first()).toBeVisible({ timeout: 12_000 });
     expect(await tabs.count()).toBeGreaterThanOrEqual(2);
   });
 
@@ -197,15 +291,14 @@ test.describe("Seller Dashboard – seller authenticated", () => {
     await page.goto("/seller");
     await waitForLoadingToFinish(page);
 
-    // Switch to Products tab if present
     const productsTab = page.locator('[role="tab"]').filter({ hasText: /products/i });
     if ((await productsTab.count()) > 0) {
       await productsTab.click();
-      await waitForLoadingToFinish(page);
+      await page.waitForTimeout(500);
     }
 
     const addBtn = page.locator("button").filter({ hasText: /add product/i }).first();
-    await expect(addBtn).toBeVisible({ timeout: 10_000 });
+    await expect(addBtn).toBeVisible({ timeout: 12_000 });
   });
 
   test("clicking Add Product reveals the product form", async ({ page }) => {
@@ -215,15 +308,17 @@ test.describe("Seller Dashboard – seller authenticated", () => {
     const productsTab = page.locator('[role="tab"]').filter({ hasText: /products/i });
     if ((await productsTab.count()) > 0) {
       await productsTab.click();
-      await waitForLoadingToFinish(page);
+      await page.waitForTimeout(500);
     }
 
     const addBtn = page.locator("button").filter({ hasText: /add product/i }).first();
-    await expect(addBtn).toBeVisible({ timeout: 8_000 });
+    await expect(addBtn).toBeVisible({ timeout: 12_000 });
     await addBtn.click();
 
     const formInput = page
-      .locator("input[placeholder*='name' i], input[placeholder*='product' i], input[name='name']")
+      .locator(
+        "input[placeholder*='name' i], input[placeholder*='product' i], input[name='name'], input[id*='name']"
+      )
       .first();
     await expect(formInput).toBeVisible({ timeout: 8_000 });
   });

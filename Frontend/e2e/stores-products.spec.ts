@@ -1,9 +1,9 @@
 /**
  * E2E tests – Stores & Product detail pages
  *
- * All tests mock the backend APIs so they pass without a live server or
- * real credentials.  Per-test overrides are used for scenarios that need
- * specific API responses.
+ * All API mocks use the explicit backend origin (http://localhost:8080) so
+ * they never accidentally intercept page-navigation requests to localhost:5173.
+ * Never uses route.continue() – all routes use route.fulfill().
  */
 
 import { test, expect } from "@playwright/test";
@@ -45,11 +45,15 @@ const MOCK_PRODUCT = {
   description: "Comfortable test sneakers",
   in_stock: true,
   image_url: "/placeholder.svg",
+  images: ["/placeholder.svg"],
   category: "Fashion",
   tags: ["shoes"],
   discount_percentage: 0,
   created_at: "2024-01-01T00:00:00Z",
   store: MOCK_STORE,
+  store_id: "store-001",
+  store_name: "Test Store",
+  store_slug: "test-store",
 };
 
 const MOCK_BUYER = {
@@ -61,15 +65,138 @@ const MOCK_BUYER = {
   created_at: "2024-01-01T00:00:00Z",
 };
 
-/** Register common API mocks needed for stores & products pages. */
+/**
+ * Register common API mocks needed for stores & products pages.
+ * MUST be called BEFORE page.goto(). Never calls route.continue().
+ * Uses explicit http://localhost:8080 prefix to avoid intercepting page loads.
+ */
 async function setupPublicMocks(page: import("@playwright/test").Page) {
-  await page.route("**/stores**", (route) => {
+  // LIFO: catch-all first (lowest priority), specific routes last (highest priority)
+
+  // Catch-all (lowest priority)
+  await page.route("http://localhost:8080/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({}),
+    })
+  );
+
+  // Utility routes
+  await page.route("http://localhost:8080/categories**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ categories: ["Fashion", "Electronics", "Food"] }),
+    })
+  );
+
+  await page.route("http://localhost:8080/wishlist**", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "ok" }),
+    });
+  });
+
+  await page.route("http://localhost:8080/cart/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "ok" }),
+    })
+  );
+
+  await page.route("http://localhost:8080/cart**", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "ok" }),
+    });
+  });
+
+  // Products
+  await page.route("http://localhost:8080/products/**", (route) => {
+    const url = route.request().url();
+    if (url.includes("/products/prod-001")) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ product: MOCK_PRODUCT }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ product: MOCK_PRODUCT }),
+    });
+  });
+
+  await page.route("http://localhost:8080/products**", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [MOCK_PRODUCT], total: 1 }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ message: "ok" }),
+    });
+  });
+
+  // Store sub-routes
+  await page.route("http://localhost:8080/stores/**", (route) => {
     const url = route.request().url();
     const method = route.request().method();
-    if (method !== "GET") return route.continue();
 
-    if (url.includes("/stores/test-store")) {
-      route.fulfill({
+    if (/\/stores\/[^/]+\/ratings/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ratings: [], average: 0 }),
+      });
+    }
+    if (/\/stores\/[^/]+\/complaints/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ complaints: [] }),
+      });
+    }
+    if (/\/stores\/[^/]+\/follow/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ following: false }),
+      });
+    }
+    if (/\/stores\/[^/]+\/products/.test(url)) {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [MOCK_PRODUCT] }),
+      });
+    }
+    // GET /stores/:slug
+    if (method === "GET") {
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
@@ -79,61 +206,50 @@ async function setupPublicMocks(page: import("@playwright/test").Page) {
           avg_rating: 4.2,
         }),
       });
-    } else if (url.includes("/stores/me")) {
-      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "unauthorized" }) });
-    } else if (url.match(/\/stores\/[^/]+\/ratings/)) {
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ratings: [], average: 0 }) });
-    } else if (url.match(/\/stores\/[^/]+\/complaints/)) {
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ complaints: [] }) });
-    } else if (url.match(/\/stores\/[^/]+\/follow/)) {
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ following: false }) });
-    } else {
-      route.fulfill({
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ store: MOCK_STORE }),
+    });
+  });
+
+  // Unauthenticated seller-owned store endpoint
+  await page.route("http://localhost:8080/stores/me/store**", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "unauthorized" }),
+    })
+  );
+
+  // Stores listing
+  await page.route("http://localhost:8080/stores**", (route) => {
+    if (route.request().method() === "GET") {
+      return route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ stores: [MOCK_STORE] }),
+        body: JSON.stringify({ stores: [MOCK_STORE], total: 1 }),
       });
     }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ store: MOCK_STORE }),
+    });
   });
 
-  await page.route("**/products**", (route) => {
-    const url = route.request().url();
-    const method = route.request().method();
-    if (method !== "GET") return route.continue();
-
-    if (url.includes("/products/prod-001")) {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ product: MOCK_PRODUCT }),
-      });
-    } else {
-      route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ products: [MOCK_PRODUCT] }),
-      });
-    }
-  });
-
-  await page.route("**/cart**", (route) => {
-    if (route.request().method() === "GET")
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
-    else route.continue();
-  });
-
-  await page.route("**/wishlist**", (route) => {
-    if (route.request().method() === "GET")
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
-    else route.continue();
-  });
-
-  await page.route("**/auth/me**", (route) =>
-    route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "unauthorized" }) })
+  // Auth – unauthenticated by default
+  await page.route("http://localhost:8080/auth/me**", (route) =>
+    route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "unauthorized" }),
+    })
   );
 }
 
-// ─── Stores listing ────────────────────────────────────────────────────────────
+// ─── Stores listing ───────────────────────────────────────────────────────────
 
 test.describe("Stores listing (/stores)", () => {
   test.beforeEach(async ({ page }) => {
@@ -148,7 +264,8 @@ test.describe("Stores listing (/stores)", () => {
   });
 
   test("store cards or empty state is rendered", async ({ page }) => {
-    const storeCards = page.locator("a[href*='/stores/']");
+    // StoreCard renders a "View Store" button (uses navigate(), not <a href>)
+    const storeCards = page.locator("button").filter({ hasText: /view store/i });
     const emptyMsg = page.getByText(/no stores|empty|be the first/i);
 
     const hasCards = (await storeCards.count()) > 0;
@@ -158,50 +275,148 @@ test.describe("Stores listing (/stores)", () => {
   });
 
   test("clicking a store card navigates to store detail page", async ({ page }) => {
-    const storeLink = page.locator("a[href*='/stores/']").first();
-    await expect(storeLink).toBeVisible({ timeout: 10_000 });
+    // StoreCard uses navigate(), the clickable element is the card div itself
+    // Click "View Store" button which calls navigate(`/stores/${slug}`)
+    const viewStoreBtn = page.locator("button").filter({ hasText: /view store/i }).first();
+    await expect(viewStoreBtn).toBeVisible({ timeout: 10_000 });
 
-    const href = await storeLink.getAttribute("href");
-    await storeLink.click();
+    await viewStoreBtn.click();
     await waitForLoadingToFinish(page);
-    await expect(page).toHaveURL(new RegExp(href!));
-  });
+    await expect(page).toHaveURL(/\/stores\//);
 });
 
-// ─── Store detail page ─────────────────────────────────────────────────────────
+// ─── Store detail page ────────────────────────────────────────────────────────
 
 test.describe("Store detail page (/stores/:slug)", () => {
   test("handles unknown slug gracefully", async ({ page }) => {
-    // Override the stores route for an unknown slug
-    await page.route("**/stores/non-existent-store-xyz-999**", (route) =>
-      route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not found" }) })
+    // LIFO: catch-all first
+    await page.route("http://localhost:8080/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      })
     );
-    await page.route("**/stores**", (route) => {
-      if (!route.request().url().includes("non-existent"))
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ stores: [] }) });
-      else
-        route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not found" }) });
+    await page.route("http://localhost:8080/cart**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/wishlist**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/stores/**", (route) => {
+      const url = route.request().url();
+      if (url.includes("non-existent")) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "not found" }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ stores: [] }),
+      });
     });
+    await page.route("http://localhost:8080/stores**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ stores: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/auth/me**", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      })
+    );
 
     await page.goto("/stores/non-existent-store-xyz-999");
     await waitForLoadingToFinish(page);
 
-    const notFound = page.getByText(/store not found|not found|404/i);
-    const hasNotFound = await notFound.isVisible().catch(() => false);
-    const url = page.url();
-    expect(hasNotFound || !url.includes("non-existent-store-xyz-999") || true).toBeTruthy();
+    await expect(page.locator("body")).not.toContainText("Something went wrong");
+    await expect(page.locator("header")).toBeVisible();
   });
 });
 
-// ─── Product detail page ───────────────────────────────────────────────────────
+// ─── Product detail page ──────────────────────────────────────────────────────
 
 test.describe("Product detail page (/products/:id)", () => {
   test("handles unknown product ID gracefully", async ({ page }) => {
-    await page.route("**/products/00000000**", (route) =>
-      route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not found" }) })
+    // LIFO: catch-all first
+    await page.route("http://localhost:8080/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      })
     );
-    await page.route("**/auth/me**", (route) =>
-      route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: "unauthorized" }) })
+    await page.route("http://localhost:8080/cart**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/wishlist**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/stores**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ stores: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/products/**", (route) => {
+      const url = route.request().url();
+      if (url.includes("00000000")) {
+        return route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "not found" }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [] }),
+      });
+    });
+    await page.route("http://localhost:8080/products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/auth/me**", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      })
     );
 
     await page.goto("/products/00000000-0000-0000-0000-000000000000");
@@ -216,13 +431,14 @@ test.describe("Product detail page (/products/:id)", () => {
     await page.goto("/marketplace");
     await waitForLoadingToFinish(page);
 
-    const productLink = page.locator("a[href*='/products/']").first();
-    await expect(productLink).toBeVisible({ timeout: 10_000 });
+    // ProductCard renders a card div with onClick → navigate, not an <a href>
+    // Click directly on the product name heading or the card itself
+    const productCard = page.locator("[class*='cursor-pointer']").filter({ hasText: /Test Sneakers|E2E Test/i }).first();
+    await expect(productCard).toBeVisible({ timeout: 10_000 });
 
-    await productLink.click();
+    await productCard.click();
     await waitForLoadingToFinish(page);
 
-    // Product detail page should show a heading and a price
     await expect(page.locator("body")).not.toContainText("Something went wrong");
     await expect(page.locator("h1, h2").first()).toBeVisible({ timeout: 10_000 });
 
@@ -237,9 +453,10 @@ test.describe("Product detail page (/products/:id)", () => {
     await page.goto("/marketplace");
     await waitForLoadingToFinish(page);
 
-    const productLink = page.locator("a[href*='/products/']").first();
-    await expect(productLink).toBeVisible({ timeout: 10_000 });
-    await productLink.click();
+    // Click the product card (uses navigate() not <a href>)
+    const productCard = page.locator("[class*='cursor-pointer']").filter({ hasText: /Test Sneakers|E2E Test/i }).first();
+    await expect(productCard).toBeVisible({ timeout: 10_000 });
+    await productCard.click();
     await waitForLoadingToFinish(page);
 
     const purchaseBtn = page
@@ -249,23 +466,30 @@ test.describe("Product detail page (/products/:id)", () => {
   });
 
   test("Add to Cart button is visible on product page (authenticated)", async ({ page }) => {
-    await setupPublicMocks(page);
-
-    // Override auth to return the mock buyer
-    await page.route("**/auth/me**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: MOCK_BUYER }) })
-    );
+    // addInitScript MUST run before page.goto()
     await page.addInitScript((u) => {
       localStorage.setItem("auth_token", "mock-token");
       localStorage.setItem("auth_user", JSON.stringify(u));
     }, MOCK_BUYER);
 
+    await setupPublicMocks(page);
+
+    // Override auth/me with authenticated response (LIFO: fires first)
+    await page.route("http://localhost:8080/auth/me**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ user: MOCK_BUYER }),
+      })
+    );
+
     await page.goto("/marketplace");
     await waitForLoadingToFinish(page);
 
-    const productLink = page.locator("a[href*='/products/']").first();
-    await expect(productLink).toBeVisible({ timeout: 10_000 });
-    await productLink.click();
+    // Click the product card (uses navigate() not <a href>)
+    const productCard = page.locator("[class*='cursor-pointer']").filter({ hasText: /Test Sneakers|E2E Test/i }).first();
+    await expect(productCard).toBeVisible({ timeout: 10_000 });
+    await productCard.click();
     await waitForLoadingToFinish(page);
 
     const purchaseBtn = page
@@ -275,10 +499,40 @@ test.describe("Product detail page (/products/:id)", () => {
   });
 });
 
-// ─── Wishlist ──────────────────────────────────────────────────────────────────
+// ─── Wishlist ─────────────────────────────────────────────────────────────────
 
 test.describe("Wishlist (/wishlist)", () => {
   test("unauthenticated user sees sign-in prompt or is redirected", async ({ page }) => {
+    // LIFO: catch-all first
+    await page.route("http://localhost:8080/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      })
+    );
+    await page.route("http://localhost:8080/cart**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ items: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/wishlist**", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      })
+    );
+    await page.route("http://localhost:8080/auth/me**", (route) =>
+      route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      })
+    );
+
     await page.goto("/wishlist");
     await waitForLoadingToFinish(page);
 
@@ -287,49 +541,84 @@ test.describe("Wishlist (/wishlist)", () => {
 
     const url = page.url();
     const redirected = url.includes("/auth");
-    // Wishlist.tsx renders "Please Login" / "You need to login" for unauthenticated users
-    const hasPrompt = await page
-      .getByText(/sign in|log in|please login|please sign|login|you need to login/i)
-      .isVisible()
-      .catch(() => false);
-    const hasEmptyState = await page
-      .getByText(/empty|no items|nothing/i)
-      .isVisible()
-      .catch(() => false);
+    const bodyText = await page.locator("body").textContent().catch(() => "");
+    const hasPrompt = /please login|you need to login|log in|sign in/i.test(bodyText ?? "");
+    const hasEmptyState = /empty|no items|nothing/i.test(bodyText ?? "");
 
     expect(redirected || hasPrompt || hasEmptyState).toBeTruthy();
   });
 
   test("authenticated user's wishlist page loads without error", async ({ page }) => {
-    // Inject mock auth session
+    // addInitScript MUST run before routes and goto
     await page.addInitScript((u) => {
       localStorage.setItem("auth_token", "mock-token");
       localStorage.setItem("auth_user", JSON.stringify(u));
     }, MOCK_BUYER);
 
-    await page.route("**/auth/me**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ user: MOCK_BUYER }) })
+    // LIFO: catch-all first
+    await page.route("http://localhost:8080/**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({}),
+      })
     );
-    await page.route("**/wishlist**", (route) => {
-      if (route.request().method() === "GET")
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
-      else route.continue();
+    await page.route("http://localhost:8080/stores**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ stores: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/products**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ products: [] }),
+      })
+    );
+    await page.route("http://localhost:8080/cart**", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: [] }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "ok" }),
+      });
     });
-    await page.route("**/cart**", (route) => {
-      if (route.request().method() === "GET")
-        route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ items: [] }) });
-      else route.continue();
+    await page.route("http://localhost:8080/wishlist**", (route) => {
+      if (route.request().method() === "GET") {
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ items: [] }),
+        });
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ message: "ok" }),
+      });
     });
+    await page.route("http://localhost:8080/auth/me**", (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ user: MOCK_BUYER }),
+      })
+    );
 
     await page.goto("/wishlist");
     await waitForLoadingToFinish(page);
 
     await expect(page.locator("body")).not.toContainText("Something went wrong");
     await expect(page.locator("header")).toBeVisible();
-    // Empty state or items – either is valid
-    await expect(page.locator("main, [role='main']")).toBeVisible();
+    // Wishlist page renders <div class="min-h-screen"> not <main> – check container
+    await expect(page.locator("h1, h2, h3").first()).toBeVisible({ timeout: 10_000 });
   });
 });
-
-
-// ─── (old duplicate section removed) ─────────────────────────────────────────
