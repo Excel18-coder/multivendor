@@ -315,10 +315,11 @@ test.describe("Seller Dashboard – seller authenticated", () => {
     await expect(addBtn).toBeVisible({ timeout: 12_000 });
     await addBtn.click();
 
+    // Wait for ProductForm to appear — it renders an input with id="name" / placeholder "Enter product name"
+    // Scope to main content to avoid matching the hidden header search input on mobile
     const formInput = page
-      .locator(
-        "input[placeholder*='name' i], input[placeholder*='product' i], input[name='name'], input[id*='name']"
-      )
+      .locator("main, [class*='card'], form, [role='dialog']")
+      .locator("input[id='name'], input[placeholder*='product name' i], input[placeholder='Enter product name']")
       .first();
     await expect(formInput).toBeVisible({ timeout: 8_000 });
   });

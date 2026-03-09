@@ -129,23 +129,7 @@ async function setupPublicMocks(page: import("@playwright/test").Page) {
     });
   });
 
-  // Products
-  await page.route("http://localhost:8080/products/**", (route) => {
-    const url = route.request().url();
-    if (url.includes("/products/prod-001")) {
-      return route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ product: MOCK_PRODUCT }),
-      });
-    }
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({ product: MOCK_PRODUCT }),
-    });
-  });
-
+  // Products list (registered first = lower LIFO priority)
   await page.route("http://localhost:8080/products**", (route) => {
     if (route.request().method() === "GET") {
       return route.fulfill({
@@ -160,6 +144,15 @@ async function setupPublicMocks(page: import("@playwright/test").Page) {
       body: JSON.stringify({ message: "ok" }),
     });
   });
+
+  // Individual product lookup (registered last = highest LIFO priority, overrides products**)
+  await page.route("http://localhost:8080/products/**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ product: MOCK_PRODUCT }),
+    })
+  );
 
   // Store sub-routes
   await page.route("http://localhost:8080/stores/**", (route) => {
@@ -283,6 +276,7 @@ test.describe("Stores listing (/stores)", () => {
     await viewStoreBtn.click();
     await waitForLoadingToFinish(page);
     await expect(page).toHaveURL(/\/stores\//);
+  });
 });
 
 // ─── Store detail page ────────────────────────────────────────────────────────
