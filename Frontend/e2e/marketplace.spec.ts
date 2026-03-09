@@ -13,6 +13,7 @@ test.describe("Marketplace (/marketplace)", () => {
     {
       id: "prod-e2e-1",
       name: "E2E Test Product",
+      description: "A great e2e test product",
       price: 2500,
       in_stock: true,
       image_url: "/placeholder.svg",
@@ -121,12 +122,12 @@ test.describe("Marketplace (/marketplace)", () => {
   });
 
   test("pre-fills search input from URL query param", async ({ page }) => {
-    // Navigate to marketplace with a search param (fresh navigation, not SPA)
+    // Navigate to marketplace with a search param (full page reload)
     await page.goto("/marketplace?search=laptop");
     await waitForLoadingToFinish(page);
 
-    // The Marketplace useEffect reads window.location.search on mount and
-    // calls setSearchTerm — wait up to 5 s for a visible input to reflect it.
+    // The Marketplace useEffect reads window.location.search on mount and calls
+    // setSearchTerm — wait up to 5 s for the visible input to reflect "laptop".
     const inputs = page.locator("input[placeholder*='earch']");
     await expect(async () => {
       const count = await inputs.count();
@@ -139,7 +140,7 @@ test.describe("Marketplace (/marketplace)", () => {
         }
       }
       expect(found).toBeTruthy();
-    }).toPass({ timeout: 8_000 });
+    }).toPass({ timeout: 5_000 });
   });
 
   test("filter sidebar / panel is rendered", async ({ page }) => {

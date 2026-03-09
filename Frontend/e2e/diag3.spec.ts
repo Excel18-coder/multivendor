@@ -26,30 +26,28 @@ async function mockProducts(page: import("@playwright/test").Page) {
 }
 
 test("diag3 - with MOCK_PRODUCTS pre-fills", async ({ page }) => {
+  const consoleMessages: string[] = [];
+  page.on('console', msg => consoleMessages.push(`[${msg.type()}] ${msg.text()}`));
+  page.on('pageerror', err => consoleMessages.push(`[PAGEERROR] ${err.message}`));
+  
   await mockProducts(page);
   
   // beforeEach navigation
   await page.goto("/marketplace");
   await waitForLoadingToFinish(page);
   
-  // Test navigation
+  // Test navigation  
   await page.goto("/marketplace?search=laptop");
   await waitForLoadingToFinish(page);
   
   await page.waitForTimeout(2000);
   
-  const inputCount = await page.locator("input[placeholder*='earch']").count();
-  const vals = [];
-  for (let i = 0; i < inputCount; i++) {
-    vals.push(await page.locator("input[placeholder*='earch']").nth(i).inputValue().catch(() => "ERR"));
-  }
+  const inputCount = await page.locator("input").count();
+  const bodyText = await page.locator("body").textContent().catch(() => "ERR");
   
-  console.log("Input count:", inputCount);
-  console.log("Input values:", vals);
-  
-  let found = false;
-  for (let i = 0; i < inputCount; i++) {
-    if (vals[i] === "laptop") { found = true; break; }
+  console.log("Input count (all):", inputCount);
+  console.log("Body text snippet:", bodyText?.substring(0, 200));
+  for (const m of consoleMessages) {
+    console.log("Console:", m);
   }
-  expect(found).toBeTruthy();
 });
