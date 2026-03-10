@@ -2,17 +2,17 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 // ─── Models ──────────────────────────────────────────────────────────────────
@@ -47,25 +47,12 @@ func (s *StrArr) Scan(value interface{}) error {
 		*s = []string{}
 		return nil
 	}
-	var bytes []byte
-	switch v := value.(type) {
-	case []byte:
-		bytes = v
-	case string:
-		bytes = []byte(v)
-	default:
-		return nil
-	}
-	str := strings.Trim(string(bytes), "{}")
-	if str == "" {
+	var result []string
+	if err := pq.Array(&result).Scan(value); err != nil {
 		*s = []string{}
 		return nil
 	}
-	parts := strings.Split(str, ",")
-	for i, p := range parts {
-		parts[i] = strings.Trim(p, `"`)
-	}
-	*s = parts
+	*s = result
 	return nil
 }
 
@@ -142,19 +129,6 @@ func validateToken(tokenStr string) (*Claims, error) {
 }
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
-	}
-}
 
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -315,6 +289,9 @@ func handleListProducts(c *gin.Context) {
 	if products == nil {
 		products = []*Product{}
 	}
+	for _, p := range products {
+		stripBase64FromProduct(p)
+	}
 	c.JSON(http.StatusOK, gin.H{"products": products})
 }
 
@@ -339,6 +316,7 @@ func handleGetProduct(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch product"})
 		return
 	}
+	stripBase64FromProduct(p)
 	c.JSON(http.StatusOK, gin.H{"product": p})
 }
 
@@ -585,6 +563,131 @@ func handleGetComparisons(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"products": products})
 }
 
+// stripBase64FromProduct replaces inline base64 data URLs with path-based image URLs.
+// This keeps list/detail JSON responses small — images are served separately.
+func stripBase64FromProduct(p *Product) {
+	// Strip base64 from the store image URL (joined from stores table)
+	if p.StoreImageURL != nil && p.StoreID != nil && strings.HasPrefix(*p.StoreImageURL, "data:") {
+		path := fmt.Sprintf("/stores/%s/image", *p.StoreID)
+		p.StoreImageURL = &path
+	}
+
+	// Build a deduplicated combined image list (primary first, then extras)
+	seen := make(map[string]bool)
+	var all []string
+	if p.ImageURL != nil && *p.ImageURL != "" {
+		if !seen[*p.ImageURL] {
+			seen[*p.ImageURL] = true
+			all = append(all, *p.ImageURL)
+		}
+	}
+	for _, u := range p.ImageURLs {
+		if u != "" && !seen[u] {
+			seen[u] = true
+			all = append(all, u)
+		}
+	}
+	if len(all) == 0 {
+		return
+	}
+	// Replace base64 entries with indexed URL references
+	newURLs := make([]string, len(all))
+	for i, img := range all {
+		if strings.HasPrefix(img, "data:") {
+			newURLs[i] = fmt.Sprintf("/products/%s/image?index=%d", p.ID, i)
+		} else {
+			newURLs[i] = img
+		}
+	}
+	primary := newURLs[0]
+	p.ImageURL = &primary
+	p.ImageURLs = StrArr(newURLs)
+}
+
+// GET /products/:id/image  — serves the raw binary image stored as base64 in the DB
+func handleProductImage(c *gin.Context) {
+	productID := c.Param("id")
+	indexStr := c.DefaultQuery("index", "0")
+	var imgIndex int
+	fmt.Sscan(indexStr, &imgIndex)
+
+	var imgURL sql.NullString
+	var imgURLs StrArr
+	err := db.QueryRow("SELECT image_url, image_urls FROM products WHERE id=$1", productID).
+		Scan(&imgURL, &imgURLs)
+	if err == sql.ErrNoRows {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		log.Printf("Image fetch error: %v", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+
+	// Build deduplicated combined list (same logic as stripBase64FromProduct)
+	seen := make(map[string]bool)
+	var all []string
+	if imgURL.Valid && imgURL.String != "" {
+		seen[imgURL.String] = true
+		all = append(all, imgURL.String)
+	}
+	for _, u := range imgURLs {
+		if u != "" && !seen[u] {
+			seen[u] = true
+			all = append(all, u)
+		}
+	}
+
+	if imgIndex < 0 || imgIndex >= len(all) {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	dataURL := all[imgIndex]
+
+	if strings.HasPrefix(dataURL, "data:") {
+		commaIdx := strings.Index(dataURL, ",")
+		if commaIdx < 0 {
+			c.Status(http.StatusInternalServerError)
+			return
+		}
+		meta := dataURL[:commaIdx]
+		b64Data := dataURL[commaIdx+1:]
+
+		mimeType := "image/jpeg"
+		switch {
+		case strings.Contains(meta, "image/png"):
+			mimeType = "image/png"
+		case strings.Contains(meta, "image/gif"):
+			mimeType = "image/gif"
+		case strings.Contains(meta, "image/webp"):
+			mimeType = "image/webp"
+		}
+
+		imgBytes, err := base64.StdEncoding.DecodeString(b64Data)
+		if err != nil {
+			imgBytes, err = base64.RawStdEncoding.DecodeString(b64Data)
+			if err != nil {
+				log.Printf("Base64 decode error for product %s: %v", productID, err)
+				c.Status(http.StatusInternalServerError)
+				return
+			}
+		}
+
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.Data(http.StatusOK, mimeType, imgBytes)
+		return
+	}
+
+	// Regular URL — redirect
+	if strings.HasPrefix(dataURL, "http") {
+		c.Redirect(http.StatusFound, dataURL)
+		return
+	}
+
+	c.Status(http.StatusNotFound)
+}
+
 // DELETE /products/comparisons/:product_id
 func handleRemoveComparison(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -593,20 +696,12 @@ func handleRemoveComparison(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "removed from compare"})
 }
 
-// Image upload (multipart) — stores images to local disk or S3
-// For now: accepts base64/URL in JSON body
-func handleUploadProductImage(c *gin.Context) {
-	_ = strconv.Itoa(0) // keep import
-	c.JSON(http.StatusOK, gin.H{"message": "use image_url field directly with CDN URL"})
-}
-
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 func main() {
 	initDB()
 
 	r := gin.Default()
-	r.Use(corsMiddleware())
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
@@ -614,6 +709,7 @@ func main() {
 	// Public routes
 	r.GET("/products", handleListProducts)
 	r.GET("/products/categories", handleListCategories)
+	r.GET("/products/:id/image", handleProductImage)
 	r.GET("/products/:id", handleGetProduct)
 
 	// Authenticated routes

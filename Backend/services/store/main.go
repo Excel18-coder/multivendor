@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -161,19 +162,6 @@ func validateToken(tokenStr string) (*Claims, error) {
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
 
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
-		c.Next()
-	}
-}
-
 func authMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
@@ -196,6 +184,59 @@ func authMiddleware() gin.HandlerFunc {
 		c.Set("role", claims.Role)
 		c.Next()
 	}
+}
+
+// ─── Store Helpers ───────────────────────────────────────────────────────────
+
+// stripBase64FromStore replaces inline base64 image_url with a path-based reference.
+func stripBase64FromStore(s *Store) {
+	if s.ImageURL != nil && strings.HasPrefix(*s.ImageURL, "data:") {
+		path := fmt.Sprintf("/stores/%s/image", s.ID)
+		s.ImageURL = &path
+	}
+}
+
+// GET /stores/:slug/image — serves the raw binary image stored as base64 in the DB
+func handleStoreImage(c *gin.Context) {
+	storeID := c.Param("slug")
+	var imgURL sql.NullString
+	err := db.QueryRow("SELECT image_url FROM stores WHERE id=$1", storeID).Scan(&imgURL)
+	if err == sql.ErrNoRows {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		log.Printf("Store image fetch error: %v", err)
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	if !imgURL.Valid || imgURL.String == "" {
+		c.Status(http.StatusNotFound)
+		return
+	}
+	imgStr := imgURL.String
+	if !strings.HasPrefix(imgStr, "data:") {
+		c.Redirect(http.StatusFound, imgStr)
+		return
+	}
+	comma := strings.Index(imgStr, ",")
+	if comma < 0 {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	meta := imgStr[5:comma]
+	b64data := imgStr[comma+1:]
+	contentType := "image/jpeg"
+	if idx := strings.Index(meta, ";"); idx > 0 {
+		contentType = meta[:idx]
+	}
+	imgBytes, err := base64.StdEncoding.DecodeString(b64data)
+	if err != nil {
+		c.Status(http.StatusInternalServerError)
+		return
+	}
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.Data(http.StatusOK, contentType, imgBytes)
 }
 
 // ─── Store Handlers ───────────────────────────────────────────────────────────
@@ -269,6 +310,7 @@ func handleListStores(c *gin.Context) {
 		if err != nil {
 			continue
 		}
+		stripBase64FromStore(s)
 		stores = append(stores, s)
 	}
 	if stores == nil {
@@ -297,7 +339,7 @@ func handleGetStore(c *gin.Context) {
 	db.QueryRow("SELECT COUNT(*) FROM products WHERE store_id=$1", s.ID).Scan(&productCount)
 	db.QueryRow("SELECT COUNT(*) FROM store_follows WHERE store_id=$1", s.ID).Scan(&followerCount)
 	db.QueryRow("SELECT COALESCE(calculate_store_rating($1), 3.0)", s.ID).Scan(&avgRating)
-
+	stripBase64FromStore(s)
 	c.JSON(http.StatusOK, gin.H{
 		"store":          s,
 		"product_count":  productCount,
@@ -380,13 +422,14 @@ func handleCreateStore(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create store"})
 		return
 	}
+	stripBase64FromStore(s)
 	c.JSON(http.StatusCreated, gin.H{"store": s})
 }
 
 // PUT /stores/:id
 func handleUpdateStore(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 
 	var ownerID string
 	db.QueryRow("SELECT owner_id FROM stores WHERE id=$1", storeID).Scan(&ownerID)
@@ -461,13 +504,14 @@ func handleUpdateStore(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch updated store"})
 		return
 	}
+	stripBase64FromStore(s)
 	c.JSON(http.StatusOK, gin.H{"store": s})
 }
 
 // DELETE /stores/:id
 func handleDeleteStore(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	role := c.GetString("role")
 
 	var ownerID string
@@ -498,6 +542,7 @@ func handleGetMyStore(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch store"})
 		return
 	}
+	stripBase64FromStore(s)
 	c.JSON(http.StatusOK, gin.H{"store": s})
 }
 
@@ -506,7 +551,7 @@ func handleGetMyStore(c *gin.Context) {
 // POST /stores/:id/follow
 func handleFollowStore(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	_, err := db.Exec(
 		`INSERT INTO store_follows (user_id, store_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
 		userID, storeID,
@@ -521,7 +566,7 @@ func handleFollowStore(c *gin.Context) {
 // DELETE /stores/:id/follow
 func handleUnfollowStore(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	db.Exec("DELETE FROM store_follows WHERE user_id=$1 AND store_id=$2", userID, storeID)
 	c.JSON(http.StatusOK, gin.H{"message": "unfollowed store"})
 }
@@ -529,7 +574,7 @@ func handleUnfollowStore(c *gin.Context) {
 // GET /stores/:id/follow/status
 func handleFollowStatus(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM store_follows WHERE user_id=$1 AND store_id=$2", userID, storeID).Scan(&count)
 	c.JSON(http.StatusOK, gin.H{"following": count > 0})
@@ -537,7 +582,7 @@ func handleFollowStatus(c *gin.Context) {
 
 // GET /stores/:id/followers
 func handleGetFollowers(c *gin.Context) {
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	var count int
 	db.QueryRow("SELECT COUNT(*) FROM store_follows WHERE store_id=$1", storeID).Scan(&count)
 	c.JSON(http.StatusOK, gin.H{"count": count})
@@ -547,7 +592,7 @@ func handleGetFollowers(c *gin.Context) {
 
 // GET /stores/:id/ratings
 func handleGetRatings(c *gin.Context) {
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	rows, err := db.Query(
 		`SELECT id, buyer_id, store_id, rating, comment, created_at
 		 FROM ratings WHERE store_id=$1 ORDER BY created_at DESC`, storeID)
@@ -574,7 +619,7 @@ func handleGetRatings(c *gin.Context) {
 // POST /stores/:id/ratings
 func handleCreateRating(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	var req struct {
 		Rating  float64 `json:"rating" binding:"required,min=1,max=5"`
 		Comment string  `json:"comment"`
@@ -600,7 +645,7 @@ func handleCreateRating(c *gin.Context) {
 
 // GET /stores/:id/complaints
 func handleGetComplaints(c *gin.Context) {
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	rows, err := db.Query(
 		`SELECT id, user_id, store_id, message, submitted_at
 		 FROM complaints WHERE store_id=$1 ORDER BY submitted_at DESC`, storeID)
@@ -624,7 +669,7 @@ func handleGetComplaints(c *gin.Context) {
 // POST /stores/:id/complaints
 func handleCreateComplaint(c *gin.Context) {
 	userID := c.GetString("user_id")
-	storeID := c.Param("id")
+	storeID := c.Param("slug")
 	var req struct {
 		Message string `json:"message" binding:"required"`
 	}
@@ -684,7 +729,6 @@ func main() {
 	initDB()
 
 	r := gin.Default()
-	r.Use(corsMiddleware())
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"status": "ok"}) })
@@ -694,23 +738,24 @@ func main() {
 	// NOTE: /stores/me/store MUST be registered before /stores/:slug to avoid Gin
 	// treating "me" as the :slug parameter.
 	r.GET("/stores/me/store", authMiddleware(), handleGetMyStore)
+	r.GET("/stores/:slug/image", handleStoreImage) // Serve binary images (must be before /:slug)
 	r.GET("/stores/:slug", handleGetStore)
-	r.GET("/stores/:id/followers", handleGetFollowers)
-	r.GET("/stores/:id/ratings", handleGetRatings)
-	r.GET("/stores/:id/complaints", handleGetComplaints)
+	r.GET("/stores/:slug/followers", handleGetFollowers)
+	r.GET("/stores/:slug/ratings", handleGetRatings)
+	r.GET("/stores/:slug/complaints", handleGetComplaints)
 
 	// Authenticated routes
 	auth := r.Group("/")
 	auth.Use(authMiddleware())
 	{
 		auth.POST("/stores", handleCreateStore)
-		auth.PUT("/stores/:id", handleUpdateStore)
-		auth.DELETE("/stores/:id", handleDeleteStore)
-		auth.POST("/stores/:id/follow", handleFollowStore)
-		auth.DELETE("/stores/:id/follow", handleUnfollowStore)
-		auth.GET("/stores/:id/follow/status", handleFollowStatus)
-		auth.POST("/stores/:id/ratings", handleCreateRating)
-		auth.POST("/stores/:id/complaints", handleCreateComplaint)
+		auth.PUT("/stores/:slug", handleUpdateStore)
+		auth.DELETE("/stores/:slug", handleDeleteStore)
+		auth.POST("/stores/:slug/follow", handleFollowStore)
+		auth.DELETE("/stores/:slug/follow", handleUnfollowStore)
+		auth.GET("/stores/:slug/follow/status", handleFollowStatus)
+		auth.POST("/stores/:slug/ratings", handleCreateRating)
+		auth.POST("/stores/:slug/complaints", handleCreateComplaint)
 		auth.POST("/complaints", handleCreateComplaintGeneric)
 	}
 
