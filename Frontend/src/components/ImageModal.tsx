@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 
@@ -31,6 +31,8 @@ export const ImageModal = ({ images, initialIndex = 0, trigger }: ImageModalProp
         {trigger}
       </DialogTrigger>
       <DialogContent className="max-w-4xl w-full h-[80vh] p-0">
+        <DialogTitle className="sr-only">Image viewer</DialogTitle>
+        <DialogDescription className="sr-only">Browse product images</DialogDescription>
         <div className="relative w-full h-full flex items-center justify-center bg-black">
           <Button
             variant="ghost"

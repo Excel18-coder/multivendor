@@ -316,14 +316,22 @@ function normalizeStore(s: any): Store {
 
 function normalizeProduct(p: any): Product {
   if (!p) return p;
-  const imageUrls: string[] = p.image_urls?.length
+  // Filter out broken base64 fragments (e.g. "data:image/jpeg;base64" without the actual data)
+  // These are produced when the old backend array scanner splits on commas inside base64 URLs.
+  const isValidUrl = (url: string) =>
+    url && typeof url === "string" &&
+    (url.startsWith("http") || url.startsWith("blob:") ||
+     url.startsWith("/") ||
+     (url.startsWith("data:") && url.includes(",")));
+  const rawUrls: string[] = p.image_urls?.length
     ? p.image_urls
     : p.images?.length
     ? p.images
     : [];
+  const imageUrls = rawUrls.filter(isValidUrl);
   const images = imageUrls.length
     ? imageUrls
-    : p.image_url
+    : p.image_url && isValidUrl(p.image_url)
     ? [p.image_url]
     : [];
   const inStock =
