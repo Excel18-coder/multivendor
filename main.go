@@ -2,17 +2,21 @@ package main
 
 import "fmt"
 
-type Size int
+type Engine struct {
+	HorsePower int
+}
 
-const (
-	ExtraSmall Size = iota
-	Small
-	Medium
-	Large
-	ExtraLarge
-)
+type Car struct {
+	Model string
+	Engine
+}
 
 func main() {
-	fmt.Println(ExtraSmall, Small, Medium, Large, ExtraLarge)
+	myCar := Car{
+		Model:  "Atenza",
+		Engine: Engine{HorsePower: 200},
+	}
+	fmt.Println("Car Model:", myCar.Model)
+	fmt.Println("Car HorsePower:", myCar.HorsePower)
 
 }
