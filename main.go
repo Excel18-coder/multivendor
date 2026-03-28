@@ -2,18 +2,17 @@ package main
 
 import "fmt"
 
-type Human struct {
-	Age int
-}
+type Size int
 
-func (h Human) printAge() {
-	fmt.Println(h.Age)
-}
-
-type Student Human
+const (
+	ExtraSmall Size = iota
+	Small
+	Medium
+	Large
+	ExtraLarge
+)
 
 func main() {
-	var s = Student{Age: 10}
-	fmt.Println(s.Age)
+	fmt.Println(ExtraSmall, Small, Medium, Large, ExtraLarge)
 
 }
