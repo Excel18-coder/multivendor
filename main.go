@@ -2,12 +2,18 @@ package main
 
 import "fmt"
 
-type Age int
+type Human struct {
+	Age int
+}
+
+func (h Human) printAge() {
+	fmt.Println(h.Age)
+}
+
+type Student Human
 
 func main() {
-	var young Age = 10
-	var old Age = 60
-
-	fmt.Println(young + old)
+	var s = Student{Age: 10}
+	fmt.Println(s.Age)
 
 }
