@@ -6,9 +6,17 @@ type Engine struct {
 	HorsePower int
 }
 
+func (e *Engine) start() {
+	fmt.Println("Enginr started!")
+}
+
 type Car struct {
 	Model string
 	Engine
+}
+
+func (c *Car) Drive() {
+	fmt.Printf("Driving my %s...\n", c.Model)
 }
 
 func main() {
@@ -16,7 +24,7 @@ func main() {
 		Model:  "Atenza",
 		Engine: Engine{HorsePower: 200},
 	}
-	fmt.Println("Car Model:", myCar.Model)
-	fmt.Println("Car HorsePower:", myCar.HorsePower)
 
+	myCar.start()
+	myCar.Drive()
 }
